@@ -76,6 +76,7 @@ enum SpellAuraInterruptFlags
     AURA_INTERRUPT_FLAG_ENTER_PVP_COMBAT    = 0x00800000,   // 23   removed by entering pvp combat
     AURA_INTERRUPT_FLAG_DIRECT_DAMAGE       = 0x01000000,   // 24   removed by any direct damage
     AURA_INTERRUPT_FLAG_LANDING             = 0x02000000,   // 25   removed by hitting the ground
+    AURA_INTERRUPT_FLAG_LEAVE_COMBAT        = 0x80000000,   // 31   removed by leaving combat
 
     AURA_INTERRUPT_FLAG_NOT_VICTIM = (AURA_INTERRUPT_FLAG_HITBYSPELL | AURA_INTERRUPT_FLAG_TAKE_DAMAGE | AURA_INTERRUPT_FLAG_DIRECT_DAMAGE)
 };
@@ -188,6 +189,30 @@ enum UnitStandFlags
     UNIT_STAND_FLAGS_UNK4         = 0x08,
     UNIT_STAND_FLAGS_UNK5         = 0x10,
     UNIT_STAND_FLAGS_ALL          = 0xFF
+};
+
+enum UnitBytes0Offsets
+{
+    UNIT_BYTES_0_OFFSET_RACE        = 0,
+    UNIT_BYTES_0_OFFSET_CLASS       = 1,
+    UNIT_BYTES_0_OFFSET_GENDER      = 2,
+    UNIT_BYTES_0_OFFSET_POWER_TYPE  = 3,
+};
+
+enum UnitBytes1Offsets
+{
+    UNIT_BYTES_1_OFFSET_STAND_STATE = 0,
+    UNIT_BYTES_1_OFFSET_PET_TALENTS = 1,
+    UNIT_BYTES_1_OFFSET_VIS_FLAG    = 2,
+    UNIT_BYTES_1_OFFSET_ANIM_TIER   = 3
+};
+
+enum UnitBytes2Offsets
+{
+    UNIT_BYTES_2_OFFSET_SHEATH_STATE    = 0,
+    UNIT_BYTES_2_OFFSET_PVP_FLAG        = 1,
+    UNIT_BYTES_2_OFFSET_PET_FLAG        = 2,
+    UNIT_BYTES_2_OFFSET_SHAPESHIFT      = 3,
 };
 
 // byte flags value (UNIT_FIELD_BYTES_1, 3)
@@ -536,7 +561,7 @@ enum UnitMoveType
 TC_GAME_API extern float baseMoveSpeed[MAX_MOVE_TYPE];
 TC_GAME_API extern float playerBaseMoveSpeed[MAX_MOVE_TYPE];
 
-enum WeaponAttackType
+enum WeaponAttackType : uint8
 {
     BASE_ATTACK   = 0,
     OFF_ATTACK    = 1,
@@ -1043,7 +1068,7 @@ enum ReactStates
     REACT_AGGRESSIVE = 2
 };
 
-enum CommandStates
+enum CommandStates : uint8
 {
     COMMAND_STAY    = 0,
     COMMAND_FOLLOW  = 1,
@@ -1314,11 +1339,11 @@ class TC_GAME_API Unit : public WorldObject
         uint8 getLevel() const { return uint8(GetUInt32Value(UNIT_FIELD_LEVEL)); }
         uint8 getLevelForTarget(WorldObject const* /*target*/) const override { return getLevel(); }
         void SetLevel(uint8 lvl);
-        uint8 getRace() const { return GetByteValue(UNIT_FIELD_BYTES_0, 0); }
+        uint8 getRace() const { return GetByteValue(UNIT_FIELD_BYTES_0, UNIT_BYTES_0_OFFSET_RACE); }
         uint32 getRaceMask() const { return 1 << (getRace()-1); }
-        uint8 getClass() const { return GetByteValue(UNIT_FIELD_BYTES_0, 1); }
+        uint8 getClass() const { return GetByteValue(UNIT_FIELD_BYTES_0, UNIT_BYTES_0_OFFSET_CLASS); }
         uint32 getClassMask() const { return 1 << (getClass()-1); }
-        uint8 getGender() const { return GetByteValue(UNIT_FIELD_BYTES_0, 2); }
+        uint8 getGender() const { return GetByteValue(UNIT_FIELD_BYTES_0, UNIT_BYTES_0_OFFSET_GENDER); }
 
         float GetStat(Stats stat) const { return float(GetUInt32Value(UNIT_FIELD_STAT0+stat)); }
         void SetStat(Stats stat, int32 val) { SetStatInt32Value(UNIT_FIELD_STAT0+stat, val); }
@@ -1347,7 +1372,7 @@ class TC_GAME_API Unit : public WorldObject
         int32 ModifyHealth(int32 val);
         int32 GetHealthGain(int32 dVal);
 
-        Powers getPowerType() const { return Powers(GetByteValue(UNIT_FIELD_BYTES_0, 3)); }
+        Powers getPowerType() const { return Powers(GetByteValue(UNIT_FIELD_BYTES_0, UNIT_BYTES_0_OFFSET_POWER_TYPE)); }
         void setPowerType(Powers power);
         uint32 GetPower(Powers power) const { return GetUInt32Value(UNIT_FIELD_POWER1   +power); }
         uint32 GetMaxPower(Powers power) const { return GetUInt32Value(UNIT_FIELD_MAXPOWER1+power); }
@@ -1388,7 +1413,7 @@ class TC_GAME_API Unit : public WorldObject
         uint32 GetCreatureType() const;
         uint32 GetCreatureTypeMask() const;
 
-        uint8 getStandState() const { return GetByteValue(UNIT_FIELD_BYTES_1, 0); }
+        uint8 GetStandState() const { return GetByteValue(UNIT_FIELD_BYTES_1, 0); }
         bool IsSitState() const;
         bool IsStandState() const;
         void SetStandState(uint8 state);
@@ -1731,6 +1756,7 @@ class TC_GAME_API Unit : public WorldObject
         void RemoveAreaAurasDueToLeaveWorld();
         void RemoveAllAuras();
         void RemoveArenaAuras();
+        void RemoveAurasOnEvade();
         void RemoveAllAurasOnDeath();
         void RemoveAllAurasRequiringDeadTarget();
         void RemoveAllAurasExceptType(AuraType type);
@@ -1994,10 +2020,11 @@ class TC_GAME_API Unit : public WorldObject
         void CalcAbsorbResist(Unit* victim, SpellSchoolMask schoolMask, DamageEffectType damagetype, uint32 const damage, uint32* absorb, uint32* resist, SpellInfo const* spellInfo = NULL);
         void CalcHealAbsorb(Unit* victim, SpellInfo const* spellInfo, uint32& healAmount, uint32& absorb);
 
-        void  UpdateSpeed(UnitMoveType mtype, bool forced);
+        void  UpdateSpeed(UnitMoveType mtype);
         float GetSpeed(UnitMoveType mtype) const;
         float GetSpeedRate(UnitMoveType mtype) const { return m_speed_rate[mtype]; }
-        void SetSpeed(UnitMoveType mtype, float rate, bool forced = false);
+        void SetSpeed(UnitMoveType mtype, float newValue);
+        void SetSpeedRate(UnitMoveType mtype, float rate);
 
         float ApplyEffectModifiers(SpellInfo const* spellProto, uint8 effect_index, float value) const;
         int32 CalculateSpellDamage(Unit const* target, SpellInfo const* spellProto, uint8 effect_index, int32 const* basePoints = NULL) const;
@@ -2141,11 +2168,11 @@ class TC_GAME_API Unit : public WorldObject
         virtual void Yell(std::string const& text, Language language, WorldObject const* target = nullptr);
         virtual void TextEmote(std::string const& text, WorldObject const* target = nullptr, bool isBossEmote = false);
         virtual void Whisper(std::string const& text, Language language, Player* target, bool isBossWhisper = false);
-        void Talk(uint32 textId, ChatMsg msgType, float textRange, WorldObject const* target);
-        void Say(uint32 textId, WorldObject const* target = nullptr);
-        void Yell(uint32 textId, WorldObject const* target = nullptr);
-        void TextEmote(uint32 textId, WorldObject const* target = nullptr, bool isBossEmote = false);
-        void Whisper(uint32 textId, Player* target, bool isBossWhisper = false);
+        virtual void Talk(uint32 textId, ChatMsg msgType, float textRange, WorldObject const* target);
+        virtual void Say(uint32 textId, WorldObject const* target = nullptr);
+        virtual void Yell(uint32 textId, WorldObject const* target = nullptr);
+        virtual void TextEmote(uint32 textId, WorldObject const* target = nullptr, bool isBossEmote = false);
+        virtual void Whisper(uint32 textId, Player* target, bool isBossWhisper = false);
 
     protected:
         explicit Unit (bool isWorldObject);

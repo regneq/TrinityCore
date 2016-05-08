@@ -12,6 +12,7 @@
 #    SERVER LOGGING
 #    SERVER SETTINGS
 #    UPDATE SETTINGS
+#    HOTSWAP SETTINGS
 #    WARDEN SETTINGS
 #    PLAYER INTERACTION
 #    CREATURE SETTINGS
@@ -724,7 +725,7 @@ CharacterCreating.Disabled.RaceMask = 0
 #                     2    - (Disabled, Paladin)
 #                     4    - (Disabled, Hunter)
 #                     8    - (Disabled, Rogue)
-#                     16   - (Disabled, Undead)
+#                     16   - (Disabled, Priest)
 #                     32   - (Disabled, Death Knight)
 #                     64   - (Disabled, Shaman)
 #                     128  - (Disabled, Mage)
@@ -1280,6 +1281,78 @@ Updates.CleanDeadRefMaxCount = 3
 ###################################################################################################
 
 ###################################################################################################
+# HOTSWAP SETTINGS
+#
+#    HotSwap.Enabled (Requires compilation with DYNAMIC_LINKING=1)
+#        Description: Enables dynamic script hotswapping.
+#                     Reloads scripts on changes.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+HotSwap.Enabled = 1
+
+#
+#    HotSwap.ScriptDir
+#        Description: Directory containing the script shared libraries (.dll/.so).
+#        Example:     "/usr/local/scripts"
+#        Default:     "scripts"
+
+HotSwap.ScriptDir = "scripts"
+
+#    HotSwap.EnableReCompiler
+#        Description: Enables the dynamic script recompiler.
+#                     Watches your script source directories and recompiles the
+#                     script modules on changes.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+HotSwap.EnableReCompiler = 1
+
+#    HotSwap.EnableEarlyTermination
+#        Description: Terminate the build of a module when an associated
+#                     source file was changed meanwhile.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+HotSwap.EnableEarlyTermination = 1
+
+#    HotSwap.EnableBuildFileRecreation
+#        Description: Recreate build files when sources to a module
+#                     were added or removed.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+HotSwap.EnableBuildFileRecreation = 1
+
+#
+#    HotSwap.EnableInstall
+#        Description: Enables cmake install after automatic builds have finished
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+HotSwap.EnableInstall = 1
+
+#
+#    HotSwap.EnablePrefixCorrection
+#        Description: Allows the core to automatic set the CMAKE_INSTALL_PREFIX
+#                     to it's current location in the filesystem.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+HotSwap.EnablePrefixCorrection = 1
+
+#    HotSwap.ReCompilerBuildType
+#        Description: Defines the build type of the builds invoked by the recompiler.
+#        Default:     "" - Built-in build type of the module is used.
+#                     "Release" - Release builds only
+#                     "Debug" - Debug builds only
+
+HotSwap.ReCompilerBuildType = ""
+
+#
+###################################################################################################
+
+###################################################################################################
 # WARDEN SETTINGS
 #
 #    Warden.Enabled
@@ -1583,6 +1656,14 @@ ListenRange.TextEmote = 40
 #        Default:     300
 
 ListenRange.Yell = 300
+
+#
+#    Creature.MovingStopTimeForPlayer
+#        Description: Time (in milliseconds) during which creature will not move after
+#                     interaction with player.
+#        Default: 180000
+
+Creature.MovingStopTimeForPlayer = 180000
 
 #
 ###################################################################################################
@@ -3220,7 +3301,6 @@ AuctionHouseBot.Class.Key = 1
 AuctionHouseBot.Class.Misc = 5
 AuctionHouseBot.Class.Glyph = 3
 
-
 #
 ###################################################################################################
 
@@ -3509,6 +3589,7 @@ Appender.DBErrors=2,2,0,DBErrors.log
 Logger.root=5,Console Server
 Logger.server=3,Console Server
 Logger.commands.gm=3,Console GM
+Logger.scripts.hotswap=3,Console Server
 Logger.sql.sql=5,Console DBErrors
 Logger.sql.updates=3,Console Server
 Logger.mmaps=3,Server
