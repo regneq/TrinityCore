@@ -28,7 +28,7 @@
 #include "Timer.h"
 #include "SharedDefines.h"
 #include "QueryResult.h"
-#include "Callback.h"
+#include "QueryCallback.h"
 #include "Realm/Realm.h"
 
 #include <atomic>
@@ -56,7 +56,8 @@ enum ServerMessageType
 enum ShutdownMask
 {
     SHUTDOWN_MASK_RESTART = 1,
-    SHUTDOWN_MASK_IDLE    = 2
+    SHUTDOWN_MASK_IDLE    = 2,
+    SHUTDOWN_MASK_FORCE   = 4
 };
 
 enum ShutdownExitCode
@@ -182,7 +183,6 @@ enum WorldFloatConfigs
     CONFIG_GROUP_XP_DISTANCE = 0,
     CONFIG_MAX_RECRUIT_A_FRIEND_DISTANCE,
     CONFIG_SIGHT_MONSTER,
-    CONFIG_SIGHT_GUARDER,
     CONFIG_LISTEN_RANGE_SAY,
     CONFIG_LISTEN_RANGE_TEXTEMOTE,
     CONFIG_LISTEN_RANGE_YELL,
@@ -252,6 +252,7 @@ enum WorldIntConfigs
     CONFIG_GM_LEVEL_IN_GM_LIST,
     CONFIG_GM_LEVEL_IN_WHO_LIST,
     CONFIG_START_GM_LEVEL,
+    CONFIG_FORCE_SHUTDOWN_THRESHOLD,
     CONFIG_GROUP_VISIBILITY,
     CONFIG_MAIL_DELIVERY_DELAY,
     CONFIG_UPTIME_UPDATE,

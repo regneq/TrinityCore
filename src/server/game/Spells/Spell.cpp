@@ -1302,18 +1302,30 @@ void Spell::SelectImplicitCasterDestTargets(SpellEffIndex effIndex, SpellImplici
         }
         default:
         {
-            float dist;
+            float dist = m_spellInfo->Effects[effIndex].CalcRadius(m_caster);
             float angle = targetType.CalcDirectionAngle();
             float objSize = m_caster->GetObjectSize();
-            if (targetType.GetTarget() == TARGET_DEST_CASTER_SUMMON)
-                dist = PET_FOLLOW_DIST;
-            else
-                dist = m_spellInfo->Effects[effIndex].CalcRadius(m_caster);
 
             if (dist < objSize)
                 dist = objSize;
-            else if (targetType.GetTarget() == TARGET_DEST_CASTER_RANDOM)
-                dist = objSize + (dist - objSize) * float(rand_norm());
+
+            switch (targetType.GetTarget())
+            {
+                case TARGET_DEST_CASTER_SUMMON:
+                    dist = PET_FOLLOW_DIST;
+                    break;
+                case TARGET_DEST_CASTER_RANDOM:
+                    dist = objSize + (dist - objSize) * float(rand_norm());
+                    break;
+                case TARGET_DEST_CASTER_FRONT_LEFT:
+                case TARGET_DEST_CASTER_BACK_LEFT:
+                case TARGET_DEST_CASTER_FRONT_RIGHT:
+                case TARGET_DEST_CASTER_BACK_RIGHT:
+                    dist = dist + objSize;
+                    break;
+                default:
+                    break;
+            }
 
             Position pos = dest._position;
             m_caster->MovePositionToFirstCollision(pos, dist, angle);
@@ -1552,7 +1564,7 @@ void Spell::SelectImplicitTrajTargets(SpellEffIndex effIndex)
 
             if (Creature* creatureTarget = unit->ToCreature())
             {
-                if (!(creatureTarget->GetCreatureTemplate()->type_flags & CREATURE_TYPEFLAGS_PROJECTILE_COLLISION))
+                if (!(creatureTarget->GetCreatureTemplate()->type_flags & CREATURE_TYPE_FLAG_CAN_COLLIDE_WITH_MISSILES))
                     continue;
             }
         }
@@ -2308,8 +2320,13 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         }
     }
 
+    bool enablePvP = false; // need to check PvP state before spell effects, but act on it afterwards
+
     if (spellHitTarget)
     {
+        // if target is flagged for pvp also flag caster if a player
+        if (unit->IsPvP() && m_caster->GetTypeId() == TYPEID_PLAYER)
+            enablePvP = true; // Decide on PvP flagging now, but act on it later.
         SpellMissInfo missInfo2 = DoSpellHitOnUnit(spellHitTarget, mask, target->scaleAura);
         if (missInfo2 != SPELL_MISS_NONE)
         {
@@ -2462,8 +2479,7 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         // Needs to be called after dealing damage/healing to not remove breaking on damage auras
         DoTriggersOnSpellHit(spellHitTarget, mask);
 
-        // if target is fallged for pvp also flag caster if a player
-        if (unit->IsPvP() && m_caster->GetTypeId() == TYPEID_PLAYER)
+        if (enablePvP)
             m_caster->ToPlayer()->UpdatePvP(true);
 
         CallScriptAfterHitHandlers();
@@ -2898,7 +2914,7 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const* triggered
 
     if (m_caster->GetTypeId() == TYPEID_PLAYER)
         m_caster->ToPlayer()->SetSpellModTakingSpell(this, true);
-    // Fill cost data (not use power for item casts
+    // Fill cost data (do not use power for item casts)
     m_powerCost = m_CastItem ? 0 : m_spellInfo->CalcPowerCost(m_caster, m_spellSchoolMask);
     if (m_caster->GetTypeId() == TYPEID_PLAYER)
         m_caster->ToPlayer()->SetSpellModTakingSpell(this, false);
@@ -2974,12 +2990,17 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const* triggered
         }
 
     // don't allow channeled spells / spells with cast time to be cast while moving
+    // exception are only channeled spells that have no casttime and SPELL_ATTR5_CAN_CHANNEL_WHEN_MOVING
     // (even if they are interrupted on moving, spells with almost immediate effect get to have their effect processed before movement interrupter kicks in)
-    if ((m_spellInfo->IsChanneled() || m_casttime) && m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->isMoving() && m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT)
+    if ((m_spellInfo->IsChanneled() || m_casttime) && m_caster->GetTypeId() == TYPEID_PLAYER && (!m_caster->IsCharmed() || !m_caster->GetCharmerGUID().IsCreature()) && m_caster->isMoving() && m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT)
     {
-        SendCastResult(SPELL_FAILED_MOVING);
-        finish(false);
-        return;
+        // 1. Is a channel spell, 2. Has no casttime, 3. And has flag to allow movement during channel
+        if (!(m_spellInfo->IsChanneled() && !m_casttime && m_spellInfo->HasAttribute(SPELL_ATTR5_CAN_CHANNEL_WHEN_MOVING)))
+        {
+            SendCastResult(SPELL_FAILED_MOVING);
+            finish(false);
+            return;
+        }
     }
 
     // set timer base at cast time
@@ -3206,6 +3227,10 @@ void Spell::cast(bool skipCheck)
         SetExecutedCurrently(false);
         return;
     }
+
+    if (m_spellInfo->HasAttribute(SPELL_ATTR1_DISMISS_PET))
+        if (Creature* pet = ObjectAccessor::GetCreature(*m_caster, m_caster->GetPetGUID()))
+            pet->DespawnOrUnsummon();
 
     PrepareTriggersExecutedOnHit();
 
@@ -3516,12 +3541,18 @@ void Spell::update(uint32 difftime)
 
     // check if the player caster has moved before the spell finished
     if ((m_caster->GetTypeId() == TYPEID_PLAYER && m_timer != 0) &&
-        m_caster->isMoving() && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT) &&
-        (m_spellInfo->Effects[0].Effect != SPELL_EFFECT_STUCK || !m_caster->HasUnitMovementFlag(MOVEMENTFLAG_FALLING_FAR)))
+        m_caster->isMoving() && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT &&
+        (m_spellInfo->Effects[0].Effect != SPELL_EFFECT_STUCK || !m_caster->HasUnitMovementFlag(MOVEMENTFLAG_FALLING_FAR))))
     {
         // don't cancel for melee, autorepeat, triggered and instant spells
-        if (!IsNextMeleeSwingSpell() && !IsAutoRepeat() && !IsTriggered())
-            cancel();
+        if (!IsNextMeleeSwingSpell() && !IsAutoRepeat() && !IsTriggered() && !(IsChannelActive() && m_spellInfo->HasAttribute(SPELL_ATTR5_CAN_CHANNEL_WHEN_MOVING)))
+        {
+            // if charmed by creature, trust the AI not to cheat and allow the cast to proceed
+            // @todo this is a hack, "creature" movesplines don't differentiate turning/moving right now
+            // however, checking what type of movement the spline is for every single spline would be really expensive
+            if (!m_caster->GetCharmerGUID().IsCreature())
+                cancel();
+        }
     }
 
     switch (m_spellState)
@@ -4817,7 +4848,7 @@ SpellCastResult Spell::CheckCast(bool strict)
 
     // cancel autorepeat spells if cast start when moving
     // (not wand currently autorepeat cast delayed to moving stop anyway in spell update code)
-    if (m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->ToPlayer()->isMoving())
+    if (m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->ToPlayer()->isMoving() && (!m_caster->IsCharmed() || !m_caster->GetCharmerGUID().IsCreature()))
     {
         // skip stuck spell to allow use it in falling case and apply spell limitations at movement
         if ((!m_caster->HasUnitMovementFlag(MOVEMENTFLAG_FALLING_FAR) || m_spellInfo->Effects[0].Effect != SPELL_EFFECT_STUCK) &&
@@ -5274,7 +5305,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 switch (SummonProperties->Category)
                 {
                     case SUMMON_CATEGORY_PET:
-                        if (m_caster->GetPetGUID())
+                        if (!m_spellInfo->HasAttribute(SPELL_ATTR1_DISMISS_PET) && m_caster->GetPetGUID())
                             return SPELL_FAILED_ALREADY_HAVE_SUMMON;
                     // intentional missing break, check both GetPetGUID() and GetCharmGUID for SUMMON_CATEGORY_PET
                     case SUMMON_CATEGORY_PUPPET:
@@ -5290,7 +5321,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 {
                     if (m_targets.GetUnitTarget()->GetTypeId() != TYPEID_PLAYER)
                         return SPELL_FAILED_BAD_TARGETS;
-                    if (m_targets.GetUnitTarget()->GetPetGUID())
+                    if (!m_spellInfo->HasAttribute(SPELL_ATTR1_DISMISS_PET) && m_targets.GetUnitTarget()->GetPetGUID())
                         return SPELL_FAILED_ALREADY_HAVE_SUMMON;
                 }
                 break;
@@ -5299,13 +5330,13 @@ SpellCastResult Spell::CheckCast(bool strict)
             {
                 if (m_caster->GetPetGUID())                  //let warlock do a replacement summon
                 {
-                    if (m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->getClass() == CLASS_WARLOCK)
+                    if (m_caster->GetTypeId() == TYPEID_PLAYER)
                     {
                         if (strict)                         //starting cast, trigger pet stun (cast by pet so it doesn't attack player)
                             if (Pet* pet = m_caster->ToPlayer()->GetPet())
                                 pet->CastSpell(pet, 32752, true, NULL, NULL, pet->GetGUID());
                     }
-                    else
+                    else if (!m_spellInfo->HasAttribute(SPELL_ATTR1_DISMISS_PET))
                         return SPELL_FAILED_ALREADY_HAVE_SUMMON;
                 }
 
@@ -5432,7 +5463,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (m_spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOD_CHARM
                     || m_spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOD_POSSESS)
                 {
-                    if (m_caster->GetPetGUID())
+                    if (!m_spellInfo->HasAttribute(SPELL_ATTR1_DISMISS_PET) && m_caster->GetPetGUID())
                         return SPELL_FAILED_ALREADY_HAVE_SUMMON;
 
                     if (m_caster->GetCharmGUID())
@@ -5578,7 +5609,14 @@ SpellCastResult Spell::CheckPetCast(Unit* target)
         m_targets.SetUnitTarget(target);
     }
 
-    // cooldown
+    // check power requirement
+    // this would be zero until ::prepare normally, we set it here (it gets reset in ::prepare)
+    m_powerCost = m_spellInfo->CalcPowerCost(m_caster, m_spellSchoolMask);
+    SpellCastResult failReason = CheckPower();
+    if (failReason != SPELL_CAST_OK)
+        return failReason;
+
+    // check cooldown
     if (Creature* creatureCaster = m_caster->ToCreature())
         if (!creatureCaster->GetSpellHistory()->IsReady(m_spellInfo))
             return SPELL_FAILED_NOT_READY;
@@ -5721,6 +5759,9 @@ SpellCastResult Spell::CheckCasterAuras() const
 
 bool Spell::CanAutoCast(Unit* target)
 {
+    if (!target)
+        return (CheckPetCast(target) == SPELL_CAST_OK);
+
     ObjectGuid targetguid = target->GetGUID();
 
     // check if target already has the same or a more powerful aura
@@ -5757,16 +5798,19 @@ bool Spell::CanAutoCast(Unit* target)
     }
 
     SpellCastResult result = CheckPetCast(target);
-
     if (result == SPELL_CAST_OK || result == SPELL_FAILED_UNIT_NOT_INFRONT)
     {
+        // do not check targets for ground-targeted spells (we target them on top of the intended target anyway)
+        if (GetSpellInfo()->ExplicitTargetMask & TARGET_FLAG_DEST_LOCATION)
+            return true;
         SelectSpellTargets();
         //check if among target units, our WANTED target is as well (->only self cast spells return false)
-        for (std::list<TargetInfo>::iterator ihit= m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
+        for (std::list<TargetInfo>::iterator ihit = m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
             if (ihit->targetGUID == targetguid)
                 return true;
     }
-    return false;                                           //target invalid
+    // either the cast failed or the intended target wouldn't be hit
+    return false;
 }
 
 SpellCastResult Spell::CheckRange(bool strict)
