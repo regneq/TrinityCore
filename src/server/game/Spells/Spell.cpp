@@ -3823,6 +3823,9 @@ void Spell::SendCastResult(SpellCastResult result)
     if (m_caster->ToPlayer()->GetSession()->PlayerLoading())  // don't send cast results at loading time
         return;
 
+    if (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR)
+        result = SPELL_FAILED_DONT_REPORT;
+
     SendCastResult(m_caster->ToPlayer(), m_spellInfo, m_cast_count, result, m_customError);
 }
 
@@ -3838,6 +3841,9 @@ void Spell::SendPetCastResult(SpellCastResult result)
     Player* player = owner->ToPlayer();
     if (!player)
         return;
+
+    if (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR)
+        result = SPELL_FAILED_DONT_REPORT;
 
     WorldPacket data(SMSG_PET_CAST_FAILED, 1 + 4 + 1);
     WriteCastResultInfo(data, player, m_spellInfo, m_cast_count, result, m_customError);
@@ -4882,9 +4888,6 @@ SpellCastResult Spell::CheckCast(bool strict)
                 return SpellCastResult(condInfo.mLastFailedCondition->ErrorType);
             }
 
-            if (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR)
-                return SPELL_FAILED_DONT_REPORT;
-
             if (!condInfo.mLastFailedCondition || !condInfo.mLastFailedCondition->ConditionTarget)
                 return SPELL_FAILED_CASTER_AURASTATE;
             return SPELL_FAILED_BAD_TARGETS;
@@ -5539,7 +5542,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                     Battlefield* Bf = sBattlefieldMgr->GetBattlefieldToZoneId(m_originalCaster->GetZoneId());
                     if (AreaTableEntry const* area = sAreaTableStore.LookupEntry(m_originalCaster->GetAreaId()))
                         if (area->flags & AREA_FLAG_NO_FLY_ZONE  || (Bf && !Bf->CanFlyIn()))
-                            return (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_NOT_HERE;
+                            return SPELL_FAILED_NOT_HERE;
                 }
                 break;
             }
@@ -5828,80 +5831,25 @@ SpellCastResult Spell::CheckRange(bool strict)
     if (!strict && m_casttime == 0)
         return SPELL_CAST_OK;
 
-    Unit* target = m_targets.GetUnitTarget();
-    float minRange = 0.0f;
-    float maxRange = 0.0f;
-    float rangeMod = 0.0f;
-    if (strict && IsNextMeleeSwingSpell())
-        maxRange = 100.0f;
-    else if (m_spellInfo->RangeEntry)
-    {
-        if (m_spellInfo->RangeEntry->type & SPELL_RANGE_MELEE)
-        {
-            rangeMod = m_caster->GetCombatReach() + 4.0f / 3.0f;
-            if (target)
-                rangeMod += target->GetCombatReach();
-            else
-                rangeMod += m_caster->GetCombatReach();
+    float minRange, maxRange;
+    std::tie(minRange, maxRange) = GetMinMaxRange(strict);
 
-            rangeMod = std::max(rangeMod, NOMINAL_MELEE_RANGE);
-        }
-        else
-        {
-            float meleeRange = 0.0f;
-            if (m_spellInfo->RangeEntry->type & SPELL_RANGE_RANGED)
-            {
-                meleeRange = m_caster->GetCombatReach() + 4.0f / 3.0f;
-                if (target)
-                    meleeRange += target->GetCombatReach();
-                else
-                    meleeRange += m_caster->GetCombatReach();
-
-                meleeRange = std::max(meleeRange, NOMINAL_MELEE_RANGE);
-            }
-
-            minRange = m_caster->GetSpellMinRangeForTarget(target, m_spellInfo) + meleeRange;
-            maxRange = m_caster->GetSpellMaxRangeForTarget(target, m_spellInfo);
-
-            if (target || m_targets.GetCorpseTarget())
-            {
-                rangeMod = m_caster->GetCombatReach();
-                if (target)
-                    rangeMod += target->GetCombatReach();
-
-                if (minRange > 0.0f && !(m_spellInfo->RangeEntry->type & SPELL_RANGE_RANGED))
-                    minRange += rangeMod;
-            }
-        }
-
-        if (target && m_caster->isMoving() && target->isMoving() && !m_caster->IsWalking() && !target->IsWalking() &&
-            (m_spellInfo->RangeEntry->type & SPELL_RANGE_MELEE || target->GetTypeId() == TYPEID_PLAYER))
-            rangeMod += 5.0f / 3.0f;
-    }
-
-    if (m_spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO) && m_caster->GetTypeId() == TYPEID_PLAYER)
-        if (Item* ranged = m_caster->ToPlayer()->GetWeaponForAttack(RANGED_ATTACK, true))
-            maxRange *= ranged->GetTemplate()->RangedModRange * 0.01f;
-
-    if (Player* modOwner = m_caster->GetSpellModOwner())
-        modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, maxRange, this);
-
-    maxRange += rangeMod;
-
+    // get square values for sqr distance checks
     minRange *= minRange;
     maxRange *= maxRange;
 
+    Unit* target = m_targets.GetUnitTarget();
     if (target && target != m_caster)
     {
         if (m_caster->GetExactDistSq(target) > maxRange)
-            return !(_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_OUT_OF_RANGE : SPELL_FAILED_DONT_REPORT;
+            return SPELL_FAILED_OUT_OF_RANGE;
 
         if (minRange > 0.0f && m_caster->GetExactDistSq(target) < minRange)
-            return !(_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_OUT_OF_RANGE : SPELL_FAILED_DONT_REPORT;
+            return SPELL_FAILED_OUT_OF_RANGE;
 
         if (m_caster->GetTypeId() == TYPEID_PLAYER &&
             (m_spellInfo->FacingCasterFlags & SPELL_FACING_FLAG_INFRONT) && !m_caster->HasInArc(static_cast<float>(M_PI), target))
-            return !(_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_UNIT_NOT_INFRONT : SPELL_FAILED_DONT_REPORT;
+            return SPELL_FAILED_UNIT_NOT_INFRONT;
     }
 
     if (m_targets.HasDst() && !m_targets.HasTraj())
@@ -5913,6 +5861,60 @@ SpellCastResult Spell::CheckRange(bool strict)
     }
 
     return SPELL_CAST_OK;
+}
+
+std::pair<float, float> Spell::GetMinMaxRange(bool strict)
+{
+    float rangeMod = 0.0f;
+    float minRange = 0.0f;
+    float maxRange = 0.0f;
+    if (strict && IsNextMeleeSwingSpell())
+    {
+        maxRange = 100.0f;
+        return std::pair<float, float>(minRange, maxRange);
+    }
+
+    if (m_spellInfo->RangeEntry)
+    {
+        Unit* target = m_targets.GetUnitTarget();
+        if (m_spellInfo->RangeEntry->type & SPELL_RANGE_MELEE)
+        {
+            rangeMod = m_caster->GetMeleeRange(target ? target : m_caster); // when the target is not a unit, take the caster's combat reach as the target's combat reach.
+        }
+        else
+        {
+            float meleeRange = 0.0f;
+            if (m_spellInfo->RangeEntry->type & SPELL_RANGE_RANGED)
+                meleeRange = m_caster->GetMeleeRange(target ? target : m_caster); // when the target is not a unit, take the caster's combat reach as the target's combat reach.
+
+            minRange = m_caster->GetSpellMinRangeForTarget(target, m_spellInfo) + meleeRange;
+            maxRange = m_caster->GetSpellMaxRangeForTarget(target, m_spellInfo);
+
+            if (target || m_targets.GetCorpseTarget())
+            {
+                rangeMod = m_caster->GetCombatReach() + (target ? target->GetCombatReach() : m_caster->GetCombatReach());
+
+
+                if (minRange > 0.0f && !(m_spellInfo->RangeEntry->type & SPELL_RANGE_RANGED))
+                    minRange += rangeMod;
+            }
+        }
+
+        if (target && m_caster->isMoving() && target->isMoving() && !m_caster->IsWalking() && !target->IsWalking() &&
+            (m_spellInfo->RangeEntry->type & SPELL_RANGE_MELEE || target->GetTypeId() == TYPEID_PLAYER))
+            rangeMod += 8.0f / 3.0f;
+    }
+
+    if (m_spellInfo->HasAttribute(SPELL_ATTR0_REQ_AMMO) && m_caster->GetTypeId() == TYPEID_PLAYER)
+        if (Item* ranged = m_caster->ToPlayer()->GetWeaponForAttack(RANGED_ATTACK, true))
+            maxRange *= ranged->GetTemplate()->RangedModRange * 0.01f;
+
+    if (Player* modOwner = m_caster->GetSpellModOwner())
+        modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_RANGE, maxRange, this);
+
+    maxRange += rangeMod;
+
+    return std::pair<float, float>(minRange, maxRange);
 }
 
 SpellCastResult Spell::CheckPower()
@@ -6434,11 +6436,11 @@ SpellCastResult Spell::CheckItems()
 
             // skip spell if no weapon in slot or broken
             if (!item || item->IsBroken())
-                return (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
+                return SPELL_FAILED_EQUIPPED_ITEM_CLASS;
 
             // skip spell if weapon not fit to triggered spell
             if (!item->IsFitToSpellRequirements(m_spellInfo))
-                return (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
+                return SPELL_FAILED_EQUIPPED_ITEM_CLASS;
         }
 
         // offhand hand weapon required
@@ -6448,11 +6450,11 @@ SpellCastResult Spell::CheckItems()
 
             // skip spell if no weapon in slot or broken
             if (!item || item->IsBroken())
-                return (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
+                return SPELL_FAILED_EQUIPPED_ITEM_CLASS;
 
             // skip spell if weapon not fit to triggered spell
             if (!item->IsFitToSpellRequirements(m_spellInfo))
-                return (_triggeredCastFlags & TRIGGERED_DONT_REPORT_CAST_ERROR) ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_EQUIPPED_ITEM_CLASS;
+                return SPELL_FAILED_EQUIPPED_ITEM_CLASS;
         }
     }
 

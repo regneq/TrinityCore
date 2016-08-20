@@ -643,25 +643,25 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
 
         if (cInfo->expansion > difficultyInfo->expansion)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, exp %u) has different `exp` in difficulty %u mode (Entry: %u, exp %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, exp: %u) has different `exp` in difficulty %u mode (Entry: %u, exp: %u).",
                 cInfo->Entry, cInfo->expansion, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->expansion);
         }
 
         if (cInfo->minlevel > difficultyInfo->minlevel)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, minlevel %u) has lower `minlevel` in difficulty %u mode (Entry: %u, minlevel %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, minlevel: %u) has lower `minlevel` in difficulty %u mode (Entry: %u, minlevel: %u).",
                 cInfo->Entry, cInfo->minlevel, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->minlevel);
         }
 
         if (cInfo->maxlevel > difficultyInfo->maxlevel)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, maxlevel %u) has lower `maxlevel` in difficulty %u mode (Entry: %u, maxlevel %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, maxlevel: %u) has lower `maxlevel` in difficulty %u mode (Entry: %u, maxlevel: %u).",
                 cInfo->Entry, cInfo->maxlevel, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->maxlevel);
         }
 
         if (cInfo->faction != difficultyInfo->faction)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, faction %u) has different `faction` in difficulty %u mode (Entry: %u, faction %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, faction: %u) has different `faction` in difficulty %u mode (Entry: %u, faction: %u).",
                 cInfo->Entry, cInfo->faction, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->faction);
             TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `faction`=%u WHERE `entry`=%u;",
                 cInfo->faction, cInfo->DifficultyEntry[diff]);
@@ -669,25 +669,51 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
 
         if (cInfo->unit_class != difficultyInfo->unit_class)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, class %u) has different `unit_class` in difficulty %u mode (Entry: %u, class %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, class: %u) has different `unit_class` in difficulty %u mode (Entry: %u, class: %u).",
                 cInfo->Entry, cInfo->unit_class, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->unit_class);
             TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `unit_class`=%u WHERE `entry`=%u;",
                 cInfo->unit_class, cInfo->DifficultyEntry[diff]);
             continue;
         }
 
+        uint32 differenceMask = cInfo->npcflag ^ difficultyInfo->npcflag;
         if (cInfo->npcflag != difficultyInfo->npcflag)
         {
             TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, `npcflag`: %u) has different `npcflag` in difficulty %u mode (Entry: %u, `npcflag`: %u).",
                 cInfo->Entry, cInfo->npcflag, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->npcflag);
-            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `npcflag`=%u WHERE `entry`=%u;",
-                cInfo->npcflag, cInfo->DifficultyEntry[diff]);
-            continue;
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `npcflag`=`npcflag`|%u WHERE `entry`=%u;",
+                differenceMask, cInfo->DifficultyEntry[diff]);
+        }
+
+        if (cInfo->dmgschool != difficultyInfo->dmgschool)
+        {
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, `dmgschool`: %u) has different `dmgschool` in difficulty %u mode (Entry: %u, `dmgschool`: %u).",
+                cInfo->Entry, cInfo->dmgschool, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->dmgschool);
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `dmgschool`=%u WHERE `entry`=%u;",
+                cInfo->dmgschool, cInfo->DifficultyEntry[diff]);
+        }
+
+        differenceMask = cInfo->unit_flags ^ difficultyInfo->unit_flags;
+        if (cInfo->unit_flags != difficultyInfo->unit_flags)
+        {
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, `unit_flags`: %u) has different `unit_flags` in difficulty %u mode (Entry: %u, `unit_flags`: %u).",
+                cInfo->Entry, cInfo->unit_flags, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->unit_flags);
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `unit_flags`=`unit_flags`|%u WHERE `entry`=%u;",
+                differenceMask, cInfo->DifficultyEntry[diff]);
+        }
+
+        differenceMask = cInfo->unit_flags2 ^ difficultyInfo->unit_flags2;
+        if (cInfo->unit_flags2 != difficultyInfo->unit_flags2)
+        {
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, `unit_flags2`: %u) has different `unit_flags2` in difficulty %u mode (Entry: %u, `unit_flags2`: %u).",
+                cInfo->Entry, cInfo->unit_flags2, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->unit_flags2);
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `unit_flags2`=`unit_flags2`|%u WHERE `entry`=%u;",
+                differenceMask, cInfo->DifficultyEntry[diff]);
         }
 
         if (cInfo->family != difficultyInfo->family)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, family %u) has different `family` in difficulty %u mode (Entry: %u, family %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, family: %u) has different `family` in difficulty %u mode (Entry: %u, family: %u).",
                 cInfo->Entry, cInfo->family, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->family);
             TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `family`=%u WHERE `entry`=%u;",
                 cInfo->family, cInfo->DifficultyEntry[diff]);
@@ -728,7 +754,7 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
 
         if (cInfo->type != difficultyInfo->type)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, type %u) has different `type` in difficulty %u mode (Entry: %u, type %u).",
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, type: %u) has different `type` in difficulty %u mode (Entry: %u, type: %u).",
                 cInfo->Entry, cInfo->type, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->type);
             TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `type`=%u WHERE `entry`=%u;",
                 cInfo->type, cInfo->DifficultyEntry[diff]);
@@ -736,8 +762,34 @@ void ObjectMgr::CheckCreatureTemplate(CreatureTemplate const* cInfo)
 
         if (!cInfo->VehicleId && difficultyInfo->VehicleId)
         {
-            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, VehicleId %u) has different `VehicleId` in difficulty %u mode (Entry: %u, VehicleId %u).",
+            TC_LOG_ERROR("sql.sql", "Non-vehicle Creature (Entry: %u, VehicleId: %u) has `VehicleId` set in difficulty %u mode (Entry: %u, VehicleId: %u).",
                 cInfo->Entry, cInfo->VehicleId, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->VehicleId);
+        }
+
+        if (cInfo->RegenHealth != difficultyInfo->RegenHealth)
+        {
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, RegenHealth: %u) has different `RegenHealth` in difficulty %u mode (Entry: %u, RegenHealth: %u).",
+                cInfo->Entry, cInfo->RegenHealth, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->RegenHealth);
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `RegenHealth`=%u WHERE `entry`=%u;",
+                cInfo->RegenHealth, cInfo->DifficultyEntry[diff]);
+        }
+
+        differenceMask = cInfo->MechanicImmuneMask ^ difficultyInfo->MechanicImmuneMask;
+        if ((difficultyInfo->MechanicImmuneMask & differenceMask) != differenceMask)
+        {
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, mechanic_immune_mask: %u) has weaker immunities in difficulty %u mode (Entry: %u, mechanic_immune_mask: %u).",
+                cInfo->Entry, cInfo->MechanicImmuneMask, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->MechanicImmuneMask);
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `mechanic_immune_mask`=`mechanic_immune_mask`|%u WHERE `entry`=%u;",
+                differenceMask, cInfo->DifficultyEntry[diff]);
+        }
+
+        differenceMask = cInfo->flags_extra ^ difficultyInfo->flags_extra;
+        if (cInfo->flags_extra != difficultyInfo->flags_extra)
+        {
+            TC_LOG_ERROR("sql.sql", "Creature (Entry: %u, flags_extra: %u) has different `flags_extra` in difficulty %u mode (Entry: %u, flags_extra: %u).",
+                cInfo->Entry, cInfo->flags_extra, diff + 1, cInfo->DifficultyEntry[diff], difficultyInfo->flags_extra);
+            TC_LOG_ERROR("sql.sql", "Possible FIX: UPDATE `creature_template` SET `flags_extra`=`flags_extra`|%u WHERE `entry`=%u;",
+                differenceMask, cInfo->DifficultyEntry[diff]);
         }
 
         if (!difficultyInfo->AIName.empty())
@@ -1050,8 +1102,8 @@ void ObjectMgr::LoadGameObjectAddons()
 {
     uint32 oldMSTime = getMSTime();
 
-    //                                               0     1                 2
-    QueryResult result = WorldDatabase.Query("SELECT guid, invisibilityType, invisibilityValue FROM gameobject_addon");
+    //                                               0     1                 2                 3                 4                 5                 6
+    QueryResult result = WorldDatabase.Query("SELECT guid, parent_rotation0, parent_rotation1, parent_rotation2, parent_rotation3, invisibilityType, invisibilityValue FROM gameobject_addon");
 
     if (!result)
     {
@@ -1066,7 +1118,7 @@ void ObjectMgr::LoadGameObjectAddons()
 
         ObjectGuid::LowType guid = fields[0].GetUInt32();
 
-        const GameObjectData* goData = GetGOData(guid);
+        GameObjectData const* goData = GetGOData(guid);
         if (!goData)
         {
             TC_LOG_ERROR("sql.sql", "GameObject (GUID: %u) does not exist but has a record in `gameobject_addon`", guid);
@@ -1074,12 +1126,13 @@ void ObjectMgr::LoadGameObjectAddons()
         }
 
         GameObjectAddon& gameObjectAddon = _gameObjectAddonStore[guid];
-        gameObjectAddon.invisibilityType = InvisibilityType(fields[1].GetUInt8());
-        gameObjectAddon.InvisibilityValue = fields[2].GetUInt32();
+        gameObjectAddon.ParentRotation = G3D::Quat(fields[1].GetFloat(), fields[2].GetFloat(), fields[3].GetFloat(), fields[4].GetFloat());
+        gameObjectAddon.invisibilityType = InvisibilityType(fields[5].GetUInt8());
+        gameObjectAddon.InvisibilityValue = fields[6].GetUInt32();
 
         if (gameObjectAddon.invisibilityType >= TOTAL_INVISIBILITY_TYPES)
         {
-            TC_LOG_ERROR("sql.sql", "GameObject (GUID: %u) has invalid InvisibilityType in `gameobject_addon`", guid);
+            TC_LOG_ERROR("sql.sql", "GameObject (GUID: %u) has invalid InvisibilityType in `gameobject_addon`, disabled invisibility", guid);
             gameObjectAddon.invisibilityType = INVISIBILITY_GENERAL;
             gameObjectAddon.InvisibilityValue = 0;
         }
@@ -1088,6 +1141,12 @@ void ObjectMgr::LoadGameObjectAddons()
         {
             TC_LOG_ERROR("sql.sql", "GameObject (GUID: %u) has InvisibilityType set but has no InvisibilityValue in `gameobject_addon`, set to 1", guid);
             gameObjectAddon.InvisibilityValue = 1;
+        }
+
+        if (!gameObjectAddon.ParentRotation.isUnit())
+        {
+            TC_LOG_ERROR("sql.sql", "GameObject (GUID: %u) has invalid parent rotation in `gameobject_addon`, set to default", guid);
+            gameObjectAddon.ParentRotation = G3D::Quat();
         }
 
         ++count;
@@ -1883,10 +1942,10 @@ ObjectGuid::LowType ObjectMgr::AddGOData(uint32 entry, uint32 mapId, float x, fl
     data.posY           = y;
     data.posZ           = z;
     data.orientation    = o;
-    data.rotation0      = rotation0;
-    data.rotation1      = rotation1;
-    data.rotation2      = rotation2;
-    data.rotation3      = rotation3;
+    data.rotation.x     = rotation0;
+    data.rotation.y     = rotation1;
+    data.rotation.z     = rotation2;
+    data.rotation.w     = rotation3;
     data.spawntimesecs  = spawntimedelay;
     data.animprogress   = 100;
     data.spawnMask      = 1;
@@ -2036,10 +2095,10 @@ void ObjectMgr::LoadGameobjects()
         data.posY           = fields[4].GetFloat();
         data.posZ           = fields[5].GetFloat();
         data.orientation    = fields[6].GetFloat();
-        data.rotation0      = fields[7].GetFloat();
-        data.rotation1      = fields[8].GetFloat();
-        data.rotation2      = fields[9].GetFloat();
-        data.rotation3      = fields[10].GetFloat();
+        data.rotation.x     = fields[7].GetFloat();
+        data.rotation.y     = fields[8].GetFloat();
+        data.rotation.z     = fields[9].GetFloat();
+        data.rotation.w     = fields[10].GetFloat();
         data.spawntimesecs  = fields[11].GetInt32();
 
         MapEntry const* mapEntry = sMapStore.LookupEntry(data.mapid);
@@ -2080,15 +2139,27 @@ void ObjectMgr::LoadGameobjects()
             data.orientation = Position::NormalizeOrientation(data.orientation);
         }
 
-        if (data.rotation2 < -1.0f || data.rotation2 > 1.0f)
+        if (data.rotation.x < -1.0f || data.rotation.x > 1.0f)
         {
-            TC_LOG_ERROR("sql.sql", "Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotation2 (%f) value, skip", guid, data.id, data.rotation2);
+            TC_LOG_ERROR("sql.sql", "Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotationX (%f) value, skip", guid, data.id, data.rotation.x);
             continue;
         }
 
-        if (data.rotation3 < -1.0f || data.rotation3 > 1.0f)
+        if (data.rotation.y < -1.0f || data.rotation.y > 1.0f)
         {
-            TC_LOG_ERROR("sql.sql", "Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotation3 (%f) value, skip", guid, data.id, data.rotation3);
+            TC_LOG_ERROR("sql.sql", "Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotationY (%f) value, skip", guid, data.id, data.rotation.y);
+            continue;
+        }
+
+        if (data.rotation.z < -1.0f || data.rotation.z > 1.0f)
+        {
+            TC_LOG_ERROR("sql.sql", "Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotationZ (%f) value, skip", guid, data.id, data.rotation.z);
+            continue;
+        }
+
+        if (data.rotation.w < -1.0f || data.rotation.w > 1.0f)
+        {
+            TC_LOG_ERROR("sql.sql", "Table `gameobject` has gameobject (GUID: %u Entry: %u) with invalid rotationW (%f) value, skip", guid, data.id, data.rotation.w);
             continue;
         }
 
@@ -2188,33 +2259,17 @@ bool ObjectMgr::GetPlayerNameByGUID(ObjectGuid guid, std::string& name) const
 
 uint32 ObjectMgr::GetPlayerTeamByGUID(ObjectGuid guid) const
 {
-    // prevent DB access for online player
-    if (Player* player = ObjectAccessor::FindConnectedPlayer(guid))
-    {
-        return Player::TeamForRace(player->getRace());
-    }
+    CharacterInfo const* characterInfo = sWorld->GetCharacterInfo(guid);
+    if (!characterInfo)
+        return 0;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHAR_RACE);
-
-    stmt->setUInt32(0, guid.GetCounter());
-
-    PreparedQueryResult result = CharacterDatabase.Query(stmt);
-
-    if (result)
-    {
-        uint8 race = (*result)[0].GetUInt8();
-        return Player::TeamForRace(race);
-    }
-
-    return 0;
+    return Player::TeamForRace(characterInfo->Race);
 }
 
 uint32 ObjectMgr::GetPlayerAccountIdByGUID(ObjectGuid guid) const
 {
     if (CharacterInfo const* characterInfo = sWorld->GetCharacterInfo(guid))
         return characterInfo->AccountId;
-
-
 
     return 0;
 }
@@ -7682,7 +7737,7 @@ ResponseCodes ObjectMgr::CheckPlayerName(std::string const& name, LocaleConstant
         if (wname[i] == wname[i-1] && wname[i] == wname[i-2])
             return CHAR_NAME_THREE_CONSECUTIVE;
 
-    return ValidateName(name, locale);
+    return ValidateName(wname, locale);
 }
 
 bool ObjectMgr::IsValidCharterName(const std::string& name)
@@ -7720,7 +7775,7 @@ PetNameInvalidReason ObjectMgr::CheckPetName(const std::string& name, LocaleCons
     if (!isValidString(wname, strictMask, false))
         return PET_NAME_MIXED_LANGUAGES;
 
-    switch (ValidateName(name, locale))
+    switch (ValidateName(wname, locale))
     {
         case CHAR_NAME_PROFANE:
             return PET_NAME_PROFANE;
