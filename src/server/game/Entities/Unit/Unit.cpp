@@ -181,7 +181,7 @@ SpellSchoolMask ProcEventInfo::GetSchoolMask() const
 }
 
 Unit::Unit(bool isWorldObject) :
-    WorldObject(isWorldObject), m_movedPlayer(NULL), m_lastSanctuaryTime(0),
+    WorldObject(isWorldObject), m_playerMovingMe(NULL), m_lastSanctuaryTime(0),
     IsAIEnabled(false), NeedChangeAI(false), LastCharmerGUID(),
     m_ControlledByPlayer(false), movespline(new Movement::MoveSpline()),
     i_AI(NULL), i_disabledAI(NULL), m_AutoRepeatFirstCast(false), m_procDeep(0),
@@ -247,7 +247,6 @@ Unit::Unit(bool isWorldObject) :
         m_createStats[i] = 0.0f;
 
     m_attacking = nullptr;
-    m_shouldReacquireTarget = false;
     m_modMeleeHitChance = 0.0f;
     m_modRangedHitChance = 0.0f;
     m_modSpellHitChance = 0.0f;
@@ -290,8 +289,10 @@ Unit::~Unit()
         if (m_currentSpells[i])
         {
             m_currentSpells[i]->SetReferencedFromCurrent(false);
-            m_currentSpells[i] = NULL;
+            m_currentSpells[i] = nullptr;
         }
+
+    m_Events.KillAllEvents(true);
 
     _DeleteRemovedAuras();
 
@@ -783,8 +784,7 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
         if (damagetype == DIRECT_DAMAGE || damagetype == SPELL_DIRECT_DAMAGE)
         {
             victim->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_DIRECT_DAMAGE, spellProto ? spellProto->Id : 0);
-            if (victim->GetTypeId() == TYPEID_UNIT && !victim->IsPet())
-                victim->SetLastDamagedTime(time(NULL));
+            victim->UpdateLastDamagedTime(spellProto);
         }
 
         if (victim->GetTypeId() != TYPEID_PLAYER)
@@ -881,10 +881,6 @@ void Unit::CastSpell(SpellCastTargets const& targets, SpellInfo const* spellInfo
         TC_LOG_ERROR("entities.unit", "CastSpell: unknown spell by caster: %s %u)", (GetTypeId() == TYPEID_PLAYER ? "player (GUID:" : "creature (Entry:"), (GetTypeId() == TYPEID_PLAYER ? GetGUID().GetCounter() : GetEntry()));
         return;
     }
-
-    /// @todo this is a workaround - not needed anymore, but required for some scripts :(
-    if (!originalCaster && triggeredByAura)
-        originalCaster = triggeredByAura->GetCasterGUID();
 
     Spell* spell = new Spell(this, spellInfo, triggerFlags, originalCaster);
 
@@ -7625,6 +7621,31 @@ bool Unit::HandleAuraProc(Unit* victim, uint32 damage, Aura* triggeredByAura, Sp
                     CastCustomSpell(this, 67545, &bp0, NULL, NULL, true, NULL, triggeredByAura->GetEffect(EFFECT_0), GetGUID());
                     return true;
                 }
+                case 44401: //Missile Barrage
+                case 48108: //Hot Streak
+                case 57761: //Fireball!
+                {
+                    *handled = true;
+
+                    // Prevent double proc for Arcane missiles
+                    if (this == victim)
+                        return false;
+
+                    if (HasAura(70752)) // Item - Mage T10 2P Bonus
+                        CastSpell((Unit*)nullptr, 70753, true);
+
+                    // Proc chance is unknown, we'll just use dummy aura amount
+                    if (AuraEffect const* aurEff = GetAuraEffect(64869, EFFECT_0)) // Item - Mage T8 4P Bonus
+                        if (roll_chance_i(aurEff->GetAmount())) // do not proc charges
+                            return false;
+
+                    // @workaround: We'll take care of removing the aura on next update tick
+                    // This is needed for 44401 to affect Arcane Missiles, else the spellmod will not be applied
+                    // it only works because EventProcessor will always update first scheduled event,
+                    // as cast is already in progress the SpellEvent for Arcane Missiles is already in queue.
+                    triggeredByAura->DropChargeDelayed(1);
+                    return false;
+                }
             }
             break;
         }
@@ -8557,12 +8578,6 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
     // remove SPELL_AURA_MOD_UNATTACKABLE at attack (in case non-interruptible spells stun aura applied also that not let attack)
     if (HasAuraType(SPELL_AURA_MOD_UNATTACKABLE))
         RemoveAurasByType(SPELL_AURA_MOD_UNATTACKABLE);
-
-    if (m_shouldReacquireTarget)
-    {
-        SetTarget(victim->GetGUID());
-        m_shouldReacquireTarget = false;
-    }
 
     if (m_attacking)
     {
@@ -10087,12 +10102,12 @@ int32 Unit::SpellBaseDamageBonusTaken(SpellSchoolMask schoolMask) const
     return TakenAdvertisedBenefit;
 }
 
-bool Unit::IsSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType) const
+bool Unit::IsSpellCrit(Unit* victim, SpellInfo const* spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType /*= BASE_ATTACK*/, Spell* spell /*= nullptr*/) const
 {
-    return roll_chance_f(GetUnitSpellCriticalChance(victim, spellProto, schoolMask, attackType));
+    return roll_chance_f(GetUnitSpellCriticalChance(victim, spellProto, schoolMask, attackType, spell));
 }
 
-float Unit::GetUnitSpellCriticalChance(Unit* victim, SpellInfo const* spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType) const
+float Unit::GetUnitSpellCriticalChance(Unit* victim, SpellInfo const* spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType /*= BASE_ATTACK*/, Spell* spell /*= nullptr*/) const
 {
     //! Mobs can't crit with spells. Player Totems can
     //! Fire Elemental (from totem) can too - but this part is a hack and needs more research
@@ -10286,7 +10301,7 @@ float Unit::GetUnitSpellCriticalChance(Unit* victim, SpellInfo const* spellProto
     // percent done
     // only players use intelligence for critical chance computations
     if (Player* modOwner = GetSpellModOwner())
-        modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CRITICAL_CHANCE, crit_chance);
+        modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_CRITICAL_CHANCE, crit_chance, spell);
 
     // for this types the bonus was already added in GetUnitCriticalChance, do not add twice
     if (spellProto->DmgClass != SPELL_DAMAGE_CLASS_MELEE && spellProto->DmgClass != SPELL_DAMAGE_CLASS_RANGED)
@@ -12071,7 +12086,7 @@ void Unit::SetSpeedRate(UnitMoveType mtype, float rate)
                 pet->SetSpeedRate(mtype, m_speed_rate[mtype]);
     }
 
-    if (Player* playerMover = GetPlayerMover()) // unit controlled by a player.
+    if (Player* playerMover = GetPlayerBeingMoved()) // unit controlled by a player.
     {
         // Send notification to self. this packet is only sent to one client (the client of the player concerned by the change).
         WorldPacket self;
@@ -12446,7 +12461,7 @@ int32 Unit::CalculateSpellDamage(Unit const* target, SpellInfo const* spellProto
 
 int32 Unit::CalcSpellDuration(SpellInfo const* spellProto)
 {
-    uint8 comboPoints = m_movedPlayer ? m_movedPlayer->GetComboPoints() : 0;
+    uint8 comboPoints = m_playerMovingMe ? m_playerMovingMe->GetComboPoints() : 0;
 
     int32 minduration = spellProto->GetDuration();
     int32 maxduration = spellProto->GetMaxDuration();
@@ -12731,7 +12746,7 @@ float Unit::GetSpellMaxRangeForTarget(Unit const* target, SpellInfo const* spell
         return 0;
     if (spellInfo->RangeEntry->maxRangeFriend == spellInfo->RangeEntry->maxRangeHostile)
         return spellInfo->GetMaxRange();
-    if (target == NULL)
+    if (!target)
         return spellInfo->GetMaxRange(true);
     return spellInfo->GetMaxRange(!IsHostileTo(target));
 }
@@ -12742,6 +12757,8 @@ float Unit::GetSpellMinRangeForTarget(Unit const* target, SpellInfo const* spell
         return 0;
     if (spellInfo->RangeEntry->minRangeFriend == spellInfo->RangeEntry->minRangeHostile)
         return spellInfo->GetMinRange();
+    if (!target)
+        return spellInfo->GetMinRange(true);
     return spellInfo->GetMinRange(!IsHostileTo(target));
 }
 
@@ -13615,16 +13632,16 @@ void CharmInfo::SetSpellAutocast(SpellInfo const* spellInfo, bool state)
     }
 }
 
-Unit* Unit::GetMover() const
+Unit* Unit::GetUnitBeingMoved() const
 {
     if (Player const* player = ToPlayer())
-        return player->m_mover;
+        return player->m_unitMovedByMe;
     return nullptr;
 }
 
-Player* Unit::GetPlayerMover() const
+Player* Unit::GetPlayerBeingMoved() const
 {
-    if (Unit* mover = GetMover())
+    if (Unit* mover = GetUnitBeingMoved())
         return mover->ToPlayer();
     return nullptr;
 }
@@ -16234,7 +16251,7 @@ void Unit::KnockbackFrom(float x, float y, float speedXY, float speedZ)
         if (Unit* charmer = GetCharmer())
         {
             player = charmer->ToPlayer();
-            if (player && player->m_mover != this)
+            if (player && player->m_unitMovedByMe != this)
                 player = NULL;
         }
     }
@@ -16888,21 +16905,23 @@ bool Unit::IsFalling() const
     return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_FALLING | MOVEMENTFLAG_FALLING_FAR) || movespline->isFalling();
 }
 
-void Unit::NearTeleportTo(float x, float y, float z, float orientation, bool casting /*= false*/)
+void Unit::NearTeleportTo(Position const& pos, bool casting /*= false*/)
 {
     DisableSpline();
     if (GetTypeId() == TYPEID_PLAYER)
-        ToPlayer()->TeleportTo(GetMapId(), x, y, z, orientation, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NOT_LEAVE_COMBAT | TELE_TO_NOT_UNSUMMON_PET | (casting ? TELE_TO_SPELL : 0));
+    {
+        WorldLocation target(GetMapId(), pos);
+        ToPlayer()->TeleportTo(target, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NOT_LEAVE_COMBAT | TELE_TO_NOT_UNSUMMON_PET | (casting ? TELE_TO_SPELL : 0));
+    }
     else
     {
-        Position pos = {x, y, z, orientation};
         SendTeleportPacket(pos);
-        UpdatePosition(x, y, z, orientation, true);
+        UpdatePosition(pos, true);
         UpdateObjectVisibility();
     }
 }
 
-void Unit::SendTeleportPacket(Position& pos)
+void Unit::SendTeleportPacket(Position const& pos)
 {
     Position oldPos = { GetPositionX(), GetPositionY(), GetPositionZMinusOffset(), GetOrientation() };
     if (GetTypeId() == TYPEID_UNIT)
@@ -17560,6 +17579,17 @@ int32 Unit::GetHighestExclusiveSameEffectSpellGroupValue(AuraEffect const* aurEf
         }
     }
     return val;
+}
+
+void Unit::UpdateLastDamagedTime(SpellInfo const* spellProto)
+{
+    if (GetTypeId() != TYPEID_UNIT || IsPet())
+        return;
+
+    if (spellProto && spellProto->HasAura(SPELL_AURA_DAMAGE_SHIELD))
+        return;
+
+    SetLastDamagedTime(time(NULL));
 }
 
 bool Unit::IsHighestExclusiveAura(Aura const* aura, bool removeOtherAuraApplications /*= false*/)
