@@ -129,9 +129,9 @@ public:
 
         bool CheckProc(ProcEventInfo& eventInfo)
         {
-            if (eventInfo.GetDamageInfo())
+            if (DamageInfo* damageInfo = eventInfo.GetDamageInfo())
             {
-                switch (GetFirstSchoolInMask(eventInfo.GetDamageInfo()->GetSchoolMask()))
+                switch (GetFirstSchoolInMask(damageInfo->GetSchoolMask()))
                 {
                     case SPELL_SCHOOL_HOLY:
                     case SPELL_SCHOOL_FIRE:
@@ -529,8 +529,12 @@ class spell_dk_blood_gorged : public SpellScriptLoader
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
             {
                 PreventDefaultAction();
-                int32 bp = int32(eventInfo.GetDamageInfo()->GetDamage() * 1.5f);
-                GetTarget()->CastCustomSpell(SPELL_DK_BLOOD_GORGED_HEAL, SPELLVALUE_BASE_POINT0, bp, _procTarget, true, NULL, aurEff);
+                DamageInfo* damageInfo = eventInfo.GetDamageInfo();
+                if (!damageInfo || !damageInfo->GetDamage())
+                    return;
+
+                int32 bp = static_cast<int32>(damageInfo->GetDamage() * 1.5f);
+                GetTarget()->CastCustomSpell(SPELL_DK_BLOOD_GORGED_HEAL, SPELLVALUE_BASE_POINT0, bp, _procTarget, true, nullptr, aurEff);
             }
 
             void Register() override
@@ -1436,7 +1440,7 @@ public:
         {
             PreventDefaultAction();
             if (DamageInfo* dmgInfo = eventInfo.GetDamageInfo())
-                eventInfo.GetActor()->CastCustomSpell(SPELL_DK_IMPROVED_BLOOD_PRESENCE_HEAL, SPELLVALUE_BASE_POINT0, CalculatePct(int32(dmgInfo->GetDamage()), aurEff->GetAmount()),
+                eventInfo.GetActor()->CastCustomSpell(SPELL_DK_IMPROVED_BLOOD_PRESENCE_HEAL, SPELLVALUE_BASE_POINT0, CalculatePct(static_cast<int32>(dmgInfo->GetDamage()), aurEff->GetAmount()),
                     eventInfo.GetActor(), true, nullptr, aurEff);
         }
 
@@ -2065,6 +2069,34 @@ class spell_dk_rime : public SpellScriptLoader
         AuraScript* GetAuraScript() const override
         {
             return new spell_dk_blade_barrier_AuraScript();
+        }
+};
+
+// 56817 - Rune strike proc (Serverside spell)
+class spell_dk_rune_strike_proc : public SpellScriptLoader
+{
+    public:
+        spell_dk_rune_strike_proc() : SpellScriptLoader("spell_dk_rune_strike_proc") { }
+
+        class spell_dk_rune_strike_proc_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_dk_rune_strike_proc_AuraScript);
+
+            void HandleDummy(AuraEffect const* /*aurEff*/, ProcEventInfo& /*eventInfo*/)
+            {
+                // Prevent console log
+                PreventDefaultAction();
+            }
+
+            void Register() override
+            {
+                OnEffectProc += AuraEffectProcFn(spell_dk_rune_strike_proc_AuraScript::HandleDummy, EFFECT_0, SPELL_AURA_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_dk_rune_strike_proc_AuraScript();
         }
 };
 
@@ -2769,17 +2801,25 @@ public:
 class player_ghoulAI : public PlayerAI
 {
     public:
-        player_ghoulAI(Player* player, ObjectGuid ghoulGUID) : PlayerAI(player), _ghoulGUID(ghoulGUID) { }
+        player_ghoulAI(Player* player, ObjectGuid ghoulGUID) : PlayerAI(player), _ghoulGUID(ghoulGUID), _ghoulCheckTimer(1000){ }
 
-        void UpdateAI(uint32 /*diff*/) override
+        void UpdateAI(uint32 diff) override
         {
-            Creature* ghoul = ObjectAccessor::GetCreature(*me, _ghoulGUID);
-            if (!ghoul || !ghoul->IsAlive())
-                me->RemoveAura(SPELL_DK_RAISE_ALLY);
+            if (_ghoulCheckTimer <= diff)
+            {
+                _ghoulCheckTimer = 1000;
+
+                Creature* ghoul = ObjectAccessor::GetCreature(*me, _ghoulGUID);
+                if (!ghoul || !ghoul->IsAlive())
+                    me->RemoveAura(SPELL_DK_RAISE_ALLY);
+            }
+            else
+                _ghoulCheckTimer -= diff;
         }
 
     private:
         ObjectGuid _ghoulGUID;
+        uint32 _ghoulCheckTimer;
 };
 
 // 46619 - Raise Ally
@@ -2801,7 +2841,7 @@ public:
         void SendText()
         {
             if (Unit* original = GetOriginalCaster())
-                original->Whisper(TEXT_RISE_ALLY, GetCaster()->ToPlayer(), true);
+                original->Unit::Whisper(TEXT_RISE_ALLY, GetCaster()->ToPlayer(), true);
         }
 
         void HandleSummon(SpellEffIndex effIndex)
@@ -3028,6 +3068,7 @@ void AddSC_deathknight_spell_scripts()
     new spell_dk_presence();
     new spell_dk_raise_dead();
     new spell_dk_rime();
+    new spell_dk_rune_strike_proc();
     new spell_dk_rune_tap_party();
     new spell_dk_scent_of_blood();
     new spell_dk_scent_of_blood_trigger();

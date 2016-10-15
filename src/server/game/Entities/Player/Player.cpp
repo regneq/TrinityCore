@@ -5172,8 +5172,15 @@ void Player::CleanupChannels()
         Channel* ch = *m_channels.begin();
         m_channels.erase(m_channels.begin());               // remove from player's channel list
         ch->LeaveChannel(this, false);                     // not send to client, not remove from player's channel list
+
+        // delete channel if empty
         if (ChannelMgr* cMgr = ChannelMgr::forTeam(GetTeam()))
-            cMgr->LeftChannel(ch->GetName());               // deleted channel if empty
+        {
+            if (ch->IsConstant())
+                cMgr->LeftChannel(ch->GetChannelId(), ch->GetZoneEntry());
+            else
+                cMgr->LeftChannel(ch->GetName());
+        }
     }
     TC_LOG_DEBUG("chat.system", "Player::CleanupChannels: Channels of player '%s' (%s) cleaned up.", GetName().c_str(), GetGUID().ToString().c_str());
 }
@@ -5191,7 +5198,6 @@ void Player::UpdateLocalChannels(uint32 newZone)
     if (!cMgr)
         return;
 
-    std::string current_zone_name = current_zone->area_name[GetSession()->GetSessionDbcLocale()];
     for (uint32 i = 0; i < sChatChannelsStore.GetNumRows(); ++i)
     {
         ChatChannelsEntry const* channelEntry = sChatChannelsStore.LookupEntry(i);
@@ -5219,14 +5225,7 @@ void Player::UpdateLocalChannels(uint32 newZone)
                 if (channelEntry->flags & CHANNEL_DBC_FLAG_CITY_ONLY && usedChannel)
                     continue;                            // Already on the channel, as city channel names are not changing
 
-                std::string currentNameExt;
-                if (channelEntry->flags & CHANNEL_DBC_FLAG_CITY_ONLY)
-                    currentNameExt = sObjectMgr->GetTrinityStringForDBCLocale(LANG_CHANNEL_CITY);
-                else
-                    currentNameExt = current_zone_name;
-
-                std::string newChannelName = Trinity::StringFormat(channelEntry->pattern[m_session->GetSessionDbcLocale()], currentNameExt.c_str());
-                joinChannel = cMgr->GetJoinChannel(newChannelName, channelEntry->ChannelID);
+                joinChannel = cMgr->GetJoinChannel(channelEntry->ChannelID, std::string(), current_zone);
                 if (usedChannel)
                 {
                     if (joinChannel != usedChannel)
@@ -5239,7 +5238,7 @@ void Player::UpdateLocalChannels(uint32 newZone)
                 }
             }
             else
-                joinChannel = cMgr->GetJoinChannel(channelEntry->pattern[m_session->GetSessionDbcLocale()], channelEntry->ChannelID);
+                joinChannel = cMgr->GetJoinChannel(channelEntry->ChannelID, std::string());
         }
         else
             removeChannel = usedChannel;
@@ -5249,10 +5248,10 @@ void Player::UpdateLocalChannels(uint32 newZone)
 
         if (removeChannel)
         {
-            removeChannel->LeaveChannel(this, sendRemove); // Leave old channel
-            std::string name = removeChannel->GetName(); // Store name, (*i)erase in LeftChannel
-            LeftChannel(removeChannel);                  // Remove from player's channel list
-            cMgr->LeftChannel(name);                     // Delete if empty
+            removeChannel->LeaveChannel(this, sendRemove);                                      // Leave old channel
+
+            LeftChannel(removeChannel);                                                         // Remove from player's channel list
+            cMgr->LeftChannel(removeChannel->GetChannelId(), removeChannel->GetZoneEntry());    // Delete if empty
         }
     }
 }
@@ -8002,7 +8001,7 @@ void Player::CastItemCombatSpell(DamageInfo const& damageInfo, Item* item, ItemT
             }
 
             // not allow proc extra attack spell at extra attack
-            if (HasExtraAttacksPending() && spellInfo->HasEffect(SPELL_EFFECT_ADD_EXTRA_ATTACKS))
+            if (m_extraAttacks && spellInfo->HasEffect(SPELL_EFFECT_ADD_EXTRA_ATTACKS))
                 return;
 
             float chance = (float)spellInfo->ProcChance;
@@ -9387,7 +9386,7 @@ void Player::SendBattlefieldWorldStates() const
     /// Send misc stuff that needs to be sent on every login, like the battle timers.
     if (sWorld->getBoolConfig(CONFIG_WINTERGRASP_ENABLE))
     {
-        if (BattlefieldWG* wg = (BattlefieldWG*)sBattlefieldMgr->GetBattlefieldByBattleId(BATTLEFIELD_BATTLEID_WG))
+        if (BattlefieldWG* wg = static_cast<BattlefieldWG*>(sBattlefieldMgr->GetBattlefieldByBattleId(BATTLEFIELD_BATTLEID_WG)))
         {
             SendUpdateWorldState(BATTLEFIELD_WG_WORLD_STATE_ACTIVE, wg->IsWarTime() ? 0 : 1);
             uint32 timer = wg->IsWarTime() ? 0 : (wg->GetTimer() / 1000); // 0 - Time to next battle
@@ -10141,7 +10140,7 @@ bool Player::HasItemOrGemWithIdEquipped(uint32 item, uint32 count, uint8 except_
     return false;
 }
 
-bool Player::HasItemOrGemWithLimitCategoryEquipped(uint32 limitCategory, uint32 count, uint8 except_slot) const
+bool Player::HasItemWithLimitCategoryEquipped(uint32 limitCategory, uint32 count, uint8 except_slot) const
 {
     uint32 tempcount = 0;
     for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; ++i)
@@ -10163,6 +10162,26 @@ bool Player::HasItemOrGemWithLimitCategoryEquipped(uint32 limitCategory, uint32 
             if (tempcount >= count)
                 return true;
         }
+    }
+
+    return false;
+}
+
+bool Player::HasGemWithLimitCategoryEquipped(uint32 limitCategory, uint32 count, uint8 except_slot) const
+{
+    uint32 tempcount = 0;
+    for (uint8 i = EQUIPMENT_SLOT_START; i < EQUIPMENT_SLOT_END; ++i)
+    {
+        if (i == except_slot)
+            continue;
+
+        Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i);
+        if (!pItem)
+            continue;
+
+        ItemTemplate const* pProto = pItem->GetTemplate();
+        if (!pProto)
+            continue;
 
         if (pProto->Socket[0].Color || pItem->GetEnchantmentId(PRISMATIC_ENCHANTMENT_SLOT))
         {
@@ -11628,10 +11647,8 @@ InventoryResult Player::CanUseItem(ItemTemplate const* proto) const
     if (!proto)
         return EQUIP_ERR_ITEM_NOT_FOUND;
 
-    if ((proto->Flags2 & ITEM_FLAGS_EXTRA_HORDE_ONLY) && GetTeam() != HORDE)
-        return EQUIP_ERR_YOU_CAN_NEVER_USE_THAT_ITEM;
-
-    if ((proto->Flags2 & ITEM_FLAGS_EXTRA_ALLIANCE_ONLY) && GetTeam() != ALLIANCE)
+    if (((proto->Flags2 & ITEM_FLAG2_FACTION_HORDE) && GetTeam() != HORDE) ||
+        (((proto->Flags2 & ITEM_FLAG2_FACTION_ALLIANCE) && GetTeam() != ALLIANCE)))
         return EQUIP_ERR_YOU_CAN_NEVER_USE_THAT_ITEM;
 
     if ((proto->AllowableClass & getClassMask()) == 0 || (proto->AllowableRace & getRaceMask()) == 0)
@@ -12297,7 +12314,7 @@ void Player::MoveItemToInventory(ItemPosCountVec const& dest, Item* pItem, bool 
         // in case trade we already have item in other player inventory
         pLastItem->SetState(in_characterInventoryDB ? ITEM_CHANGED : ITEM_NEW, this);
 
-        if (pLastItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_BOP_TRADEABLE))
+        if (pLastItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE))
             AddTradeableItem(pLastItem);
     }
 }
@@ -12315,7 +12332,7 @@ void Player::DestroyItem(uint8 bag, uint8 slot, bool update)
             for (uint8 i = 0; i < MAX_BAG_SIZE; ++i)
                 DestroyItem(slot, i, update);
 
-        if (pItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED))
+        if (pItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_WRAPPED))
         {
             PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GIFT);
 
@@ -12388,7 +12405,7 @@ void Player::DestroyItem(uint8 bag, uint8 slot, bool update)
         // Delete rolled money / loot from db.
         // MUST be done before RemoveFromWorld() or GetTemplate() fails
         if (ItemTemplate const* pTmp = pItem->GetTemplate())
-            if (pTmp->Flags & ITEM_PROTO_FLAG_HAS_LOOT)
+            if (pTmp->Flags & ITEM_FLAG_HAS_LOOT)
                 pItem->ItemContainerDeleteLootMoneyAndLootItemsFromDB();
 
         if (IsInWorld() && update)
@@ -15188,11 +15205,14 @@ void Player::SetRewardedQuest(uint32 quest_id)
 
 void Player::FailQuest(uint32 questId)
 {
-
     if (Quest const* quest = sObjectMgr->GetQuestTemplate(questId))
     {
         // Already complete quests shouldn't turn failed.
         if (GetQuestStatus(questId) == QUEST_STATUS_COMPLETE && !quest->HasSpecialFlag(QUEST_SPECIAL_FLAGS_TIMED))
+            return;
+
+        // You can't fail a quest if you don't have it, or if it's already rewarded.
+        if (GetQuestStatus(questId) == QUEST_STATUS_NONE || GetQuestStatus(questId) == QUEST_STATUS_REWARDED)
             return;
 
         SetQuestStatus(questId, QUEST_STATUS_FAILED);
@@ -18080,13 +18100,13 @@ Item* Player::_LoadItem(SQLTransaction& trans, uint32 zoneId, uint32 timeDiff, F
                 remove = true;
             }
             // "Conjured items disappear if you are logged out for more than 15 minutes"
-            else if (timeDiff > 15 * MINUTE && proto->Flags & ITEM_PROTO_FLAG_CONJURED)
+            else if (timeDiff > 15 * MINUTE && proto->Flags & ITEM_FLAG_CONJURED)
             {
                 TC_LOG_DEBUG("entities.player.loading", "Player::_LoadInventory: player (GUID: %u, name: '%s', diff: %u) has conjured item (GUID: %u, entry: %u) with expired lifetime (15 minutes). Deleting item.",
                     GetGUID().GetCounter(), GetName().c_str(), timeDiff, item->GetGUID().GetCounter(), item->GetEntry());
                 remove = true;
             }
-            else if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_REFUNDABLE))
+            else if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE))
             {
                 if (item->GetPlayedTime() > (2 * HOUR))
                 {
@@ -18097,7 +18117,7 @@ Item* Player::_LoadItem(SQLTransaction& trans, uint32 zoneId, uint32 timeDiff, F
                     stmt->setUInt32(0, item->GetGUID().GetCounter());
                     trans->Append(stmt);
 
-                    item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_REFUNDABLE);
+                    item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE);
                 }
                 else
                 {
@@ -18115,11 +18135,11 @@ Item* Player::_LoadItem(SQLTransaction& trans, uint32 zoneId, uint32 timeDiff, F
                     {
                         TC_LOG_DEBUG("entities.player.loading", "Player::_LoadInventory: player (GUID: %u, name: '%s') has item (GUID: %u, entry: %u) with refundable flags, but without data in item_refund_instance. Removing flag.",
                             GetGUID().GetCounter(), GetName().c_str(), item->GetGUID().GetCounter(), item->GetEntry());
-                        item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_REFUNDABLE);
+                        item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE);
                     }
                 }
             }
-            else if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_BOP_TRADEABLE))
+            else if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE))
             {
                 stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ITEM_BOP_TRADE);
                 stmt->setUInt32(0, item->GetGUID().GetCounter());
@@ -18143,7 +18163,7 @@ Item* Player::_LoadItem(SQLTransaction& trans, uint32 zoneId, uint32 timeDiff, F
                 {
                     TC_LOG_DEBUG("entities.player.loading", "Player::_LoadInventory: player (GUID: %u, name: '%s') has item (GUID: %u, entry: %u) with ITEM_FLAG_BOP_TRADEABLE flag, but without data in item_soulbound_trade_data. Removing flag.",
                         GetGUID().GetCounter(), GetName().c_str(), item->GetGUID().GetCounter(), item->GetEntry());
-                    item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_BOP_TRADEABLE);
+                    item->RemoveFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_BOP_TRADEABLE);
                 }
             }
             else if (proto->HolidayId)
@@ -21483,9 +21503,9 @@ inline bool Player::_StoreOrEquipNewItem(uint32 vendorslot, uint32 item, uint8 c
         if (!bStore)
             AutoUnequipOffhandIfNeed();
 
-        if (pProto->Flags & ITEM_PROTO_FLAG_REFUNDABLE && crItem->ExtendedCost && pProto->GetMaxStackSize() == 1)
+        if (pProto->Flags & ITEM_FLAG_ITEM_PURCHASE_RECORD && crItem->ExtendedCost && pProto->GetMaxStackSize() == 1)
         {
-            it->SetFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_REFUNDABLE);
+            it->SetFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE);
             it->SetRefundRecipient(GetGUID().GetCounter());
             it->SetPaidMoney(price);
             it->SetPaidExtendedCost(crItem->ExtendedCost);
@@ -21522,7 +21542,7 @@ bool Player::BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uin
         return false;
     }
 
-    if (!IsGameMaster() && ((pProto->Flags2 & ITEM_FLAGS_EXTRA_HORDE_ONLY && GetTeam() == ALLIANCE) || (pProto->Flags2 == ITEM_FLAGS_EXTRA_ALLIANCE_ONLY && GetTeam() == HORDE)))
+    if (!IsGameMaster() && ((pProto->Flags2 & ITEM_FLAG2_FACTION_HORDE && GetTeam() == ALLIANCE) || (pProto->Flags2 == ITEM_FLAG2_FACTION_ALLIANCE && GetTeam() == HORDE)))
         return false;
 
     Creature* creature = GetNPCIfCanInteractWith(vendorguid, UNIT_NPC_FLAG_VENDOR);
@@ -22710,7 +22730,7 @@ void Player::SendInstanceResetWarning(uint32 mapid, Difficulty difficulty, uint3
 
 void Player::ApplyEquipCooldown(Item* pItem)
 {
-    if (pItem->HasFlag(ITEM_FIELD_FLAGS, ITEM_PROTO_FLAG_NO_EQUIP_COOLDOWN))
+    if (pItem->GetTemplate()->Flags & ITEM_FLAG_NO_EQUIP_COOLDOWN)
         return;
 
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -24878,7 +24898,7 @@ InventoryResult Player::CanEquipUniqueItem(Item* pItem, uint8 eslot, uint32 limi
 InventoryResult Player::CanEquipUniqueItem(ItemTemplate const* itemProto, uint8 except_slot, uint32 limit_count) const
 {
     // check unique-equipped on item
-    if (itemProto->Flags & ITEM_PROTO_FLAG_UNIQUE_EQUIPPED)
+    if (itemProto->Flags & ITEM_FLAG_UNIQUE_EQUIPPABLE)
     {
         // there is an equip limit on this item
         if (HasItemOrGemWithIdEquipped(itemProto->ItemId, 1, except_slot))
@@ -24898,7 +24918,9 @@ InventoryResult Player::CanEquipUniqueItem(ItemTemplate const* itemProto, uint8 
             return EQUIP_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED;
 
         // there is an equip limit on this item
-        if (HasItemOrGemWithLimitCategoryEquipped(itemProto->ItemLimitCategory, limitEntry->maxCount - limit_count + 1, except_slot))
+        if (HasItemWithLimitCategoryEquipped(itemProto->ItemLimitCategory, limitEntry->maxCount - limit_count + 1, except_slot))
+            return EQUIP_ERR_ITEM_MAX_LIMIT_CATEGORY_EQUIPPED_EXCEEDED;
+        else if (HasGemWithLimitCategoryEquipped(itemProto->ItemLimitCategory, limitEntry->maxCount - limit_count + 1, except_slot))
             return EQUIP_ERR_ITEM_MAX_COUNT_EQUIPPED_SOCKETED;
     }
 
@@ -26038,7 +26060,7 @@ void Player::SendRefundInfo(Item* item)
     // This function call unsets ITEM_FLAGS_REFUNDABLE if played time is over 2 hours.
     item->UpdatePlayedTime(this);
 
-    if (!item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_REFUNDABLE))
+    if (!item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE))
     {
         TC_LOG_DEBUG("entities.player.items", "Item refund: item not refundable!");
         return;
@@ -26098,7 +26120,7 @@ bool Player::AddItem(uint32 itemId, uint32 count)
 
 void Player::RefundItem(Item* item)
 {
-    if (!item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_REFUNDABLE))
+    if (!item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_REFUNDABLE))
     {
         TC_LOG_DEBUG("entities.player.items", "Item refund: item not refundable!");
         return;

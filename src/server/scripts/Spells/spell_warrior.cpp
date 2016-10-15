@@ -326,7 +326,11 @@ class spell_warr_deep_wounds_aura : public SpellScriptLoader
 
             bool CheckProc(ProcEventInfo& eventInfo)
             {
-                return eventInfo.GetActor()->GetTypeId() == TYPEID_PLAYER && eventInfo.GetDamageInfo();
+                DamageInfo* damageInfo = eventInfo.GetDamageInfo();
+                if (!damageInfo)
+                    return false;
+
+                return eventInfo.GetActor()->GetTypeId() == TYPEID_PLAYER;
             }
 
             void OnProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
@@ -950,18 +954,18 @@ class spell_warr_sweeping_strikes : public SpellScriptLoader
             void HandleProc(AuraEffect const* aurEff, ProcEventInfo& eventInfo)
             {
                 PreventDefaultAction();
-                if (eventInfo.GetDamageInfo())
+                if (DamageInfo* damageInfo = eventInfo.GetDamageInfo())
                 {
-                    SpellInfo const* spellInfo = eventInfo.GetDamageInfo()->GetSpellInfo();
+                    SpellInfo const* spellInfo = damageInfo->GetSpellInfo();
                     if (spellInfo && (spellInfo->Id == SPELL_WARRIOR_BLADESTORM_PERIODIC_WHIRLWIND || (spellInfo->Id == SPELL_WARRIOR_EXECUTE && !_procTarget->HasAuraState(AURA_STATE_HEALTHLESS_20_PERCENT))))
                     {
                         // If triggered by Execute (while target is not under 20% hp) or Bladestorm deals normalized weapon damage
-                        GetTarget()->CastSpell(_procTarget, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_2, true, NULL, aurEff);
+                        GetTarget()->CastSpell(_procTarget, SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_2, true, nullptr, aurEff);
                     }
                     else
                     {
-                        int32 damage = eventInfo.GetDamageInfo()->GetDamage();
-                        GetTarget()->CastCustomSpell(SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1, SPELLVALUE_BASE_POINT0, damage, _procTarget, true, NULL, aurEff);
+                        int32 damage = damageInfo->GetDamage();
+                        GetTarget()->CastCustomSpell(SPELL_WARRIOR_SWEEPING_STRIKES_EXTRA_ATTACK_1, SPELLVALUE_BASE_POINT0, damage, _procTarget, true, nullptr, aurEff);
                     }
                 }
             }
@@ -1046,6 +1050,34 @@ class spell_warr_t3_prot_8p_bonus : public SpellScriptLoader
         AuraScript* GetAuraScript() const override
         {
             return new spell_warr_t3_prot_8p_bonus_AuraScript();
+        }
+};
+
+// 32216 - Victorious
+class spell_warr_victorious : public SpellScriptLoader
+{
+    public:
+        spell_warr_victorious() : SpellScriptLoader("spell_warr_victorious") { }
+
+        class spell_warr_victorious_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_warr_victorious_AuraScript);
+
+            void HandleDummy(AuraEffect const* /*aurEff*/, ProcEventInfo& /*eventInfo*/)
+            {
+                // Prevent console log
+                PreventDefaultAction();
+            }
+
+            void Register() override
+            {
+                OnEffectProc += AuraEffectProcFn(spell_warr_victorious_AuraScript::HandleDummy, EFFECT_0, SPELL_AURA_DUMMY);
+            }
+        };
+
+        AuraScript* GetAuraScript() const override
+        {
+            return new spell_warr_victorious_AuraScript();
         }
 };
 
@@ -1201,6 +1233,7 @@ void AddSC_warrior_spell_scripts()
     new spell_warr_sweeping_strikes();
     new spell_warr_sword_and_board();
     new spell_warr_t3_prot_8p_bonus();
+    new spell_warr_victorious();
     new spell_warr_vigilance();
     new spell_warr_vigilance_trigger();
 }
