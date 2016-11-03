@@ -292,14 +292,18 @@ void Spell::EffectEnvironmentalDMG(SpellEffIndex /*effIndex*/)
     if (!unitTarget || !unitTarget->IsAlive())
         return;
 
-    uint32 absorb = 0;
-    uint32 resist = 0;
-
-    m_caster->CalcAbsorbResist(unitTarget, m_spellInfo->GetSchoolMask(), SPELL_DIRECT_DAMAGE, damage, &absorb, &resist, m_spellInfo);
-
-    m_caster->SendSpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, damage, m_spellInfo->GetSchoolMask(), absorb, resist, false, 0, false);
+    // CalcAbsorbResist already in Player::EnvironmentalDamage
     if (unitTarget->GetTypeId() == TYPEID_PLAYER)
         unitTarget->ToPlayer()->EnvironmentalDamage(DAMAGE_FIRE, damage);
+    else
+    {
+        DamageInfo damageInfo(m_caster, unitTarget, damage, m_spellInfo, m_spellInfo->GetSchoolMask(), SPELL_DIRECT_DAMAGE, BASE_ATTACK);
+        m_caster->CalcAbsorbResist(damageInfo);
+
+        uint32 absorb = damageInfo.GetAbsorb();
+        uint32 resist = damageInfo.GetResist();
+        m_caster->SendSpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, damage, m_spellInfo->GetSchoolMask(), absorb, resist, false, 0, false);
+    }
 }
 
 void Spell::EffectSchoolDMG(SpellEffIndex effIndex)
@@ -3531,21 +3535,12 @@ void Spell::EffectSummonObjectWild(SpellEffIndex effIndex)
             if (Battleground* bg = player->GetBattleground())
                 bg->SetDroppedFlagGUID(pGameObj->GetGUID(), player->GetTeam() == ALLIANCE ? TEAM_HORDE: TEAM_ALLIANCE);
 
-    if (uint32 linkedEntry = pGameObj->GetGOInfo()->GetLinkedGameObjectEntry())
+    if (GameObject* linkedTrap = pGameObj->GetLinkedTrap())
     {
-        GameObject* linkedGO = new GameObject();
-        if (linkedGO->Create(map->GenerateLowGuid<HighGuid::GameObject>(), linkedEntry, map, m_caster->GetPhaseMask(), Position(x, y, z, target->GetOrientation()), rot, 255, GO_STATE_READY))
-        {
-            linkedGO->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
-            linkedGO->SetSpellId(m_spellInfo->Id);
+        linkedTrap->SetRespawnTime(duration > 0 ? duration / IN_MILLISECONDS : 0);
+        linkedTrap->SetSpellId(m_spellInfo->Id);
 
-            ExecuteLogEffectSummonObject(effIndex, linkedGO);
-
-            // Wild object not have owner and check clickable by players
-            map->AddToMap(linkedGO);
-        }
-        else
-            delete linkedGO;
+        ExecuteLogEffectSummonObject(effIndex, linkedTrap);
     }
 }
 
@@ -4579,8 +4574,8 @@ void Spell::EffectQuestComplete(SpellEffIndex effIndex)
         uint16 logSlot = player->FindQuestSlot(questId);
         if (logSlot < MAX_QUEST_LOG_SIZE)
             player->AreaExploredOrEventHappens(questId);
-        else if (player->CanTakeQuest(quest, false))    // Check if the quest has already been turned in.
-            player->SetRewardedQuest(questId);          // If not, set status to rewarded without broadcasting it to client.
+        else if (quest->HasFlag(QUEST_FLAGS_TRACKING))  // Check if the quest is used as a serverside flag.
+            player->SetRewardedQuest(questId);          // If so, set status to rewarded without broadcasting it to client.
     }
 }
 
@@ -5137,26 +5132,14 @@ void Spell::EffectTransmitted(SpellEffIndex effIndex)
 
     cMap->AddToMap(pGameObj);
 
-    if (uint32 linkedEntry = pGameObj->GetGOInfo()->GetLinkedGameObjectEntry())
+    if (GameObject* linkedTrap = pGameObj->GetLinkedTrap())
     {
-        GameObject* linkedGO = new GameObject;
-        if (linkedGO->Create(cMap->GenerateLowGuid<HighGuid::GameObject>(), linkedEntry, cMap, m_caster->GetPhaseMask(), pos, rot, 255, GO_STATE_READY))
-        {
-            linkedGO->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
-            //linkedGO->SetUInt32Value(GAMEOBJECT_LEVEL, m_caster->getLevel());
-            linkedGO->SetSpellId(m_spellInfo->Id);
-            linkedGO->SetOwnerGUID(m_caster->GetGUID());
+        linkedTrap->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
+        //linkedTrap->SetUInt32Value(GAMEOBJECT_LEVEL, m_caster->getLevel());
+        linkedTrap->SetSpellId(m_spellInfo->Id);
+        linkedTrap->SetOwnerGUID(m_caster->GetGUID());
 
-            ExecuteLogEffectSummonObject(effIndex, linkedGO);
-
-            linkedGO->GetMap()->AddToMap(linkedGO);
-        }
-        else
-        {
-            delete linkedGO;
-            linkedGO = NULL;
-            return;
-        }
+        ExecuteLogEffectSummonObject(effIndex, linkedTrap);
     }
 }
 

@@ -802,11 +802,15 @@ namespace Movement{
 
 struct DiminishingReturn
 {
-    DiminishingReturn(DiminishingGroup group, uint32 t, uint32 count)
-        : DRGroup(group), stack(0), hitTime(t), hitCount(count)
-    { }
+    DiminishingReturn() : stack(0), hitTime(0), hitCount(DIMINISHING_LEVEL_1) { }
 
-    DiminishingGroup        DRGroup;
+    void Clear()
+    {
+        stack = 0;
+        hitTime = 0;
+        hitCount = DIMINISHING_LEVEL_1;
+    }
+
     uint16                  stack;
     uint32                  hitTime;
     uint32                  hitCount;
@@ -1256,9 +1260,9 @@ class TC_GAME_API Unit : public WorldObject
         typedef std::list<AuraEffect*> AuraEffectList;
         typedef std::list<Aura*> AuraList;
         typedef std::list<AuraApplication *> AuraApplicationList;
-        typedef std::list<DiminishingReturn> Diminishing;
+        typedef std::array<DiminishingReturn, DIMINISHING_MAX> Diminishing;
 
-        typedef std::deque<std::pair<uint8 /*procEffectMask*/, AuraApplication*>> AuraApplicationProcContainer;
+        typedef std::vector<std::pair<uint8 /*procEffectMask*/, AuraApplication*>> AuraApplicationProcContainer;
 
         typedef std::map<uint8, AuraApplication*> VisibleAuraMap;
 
@@ -1273,11 +1277,11 @@ class TC_GAME_API Unit : public WorldObject
         void CleanupBeforeRemoveFromMap(bool finalCleanup);
         void CleanupsBeforeDelete(bool finalCleanup = true) override;                        // used in ~Creature/~Player (or before mass creature delete to remove cross-references to already deleted units)
 
-        DiminishingLevels GetDiminishing(DiminishingGroup  group);
-        void IncrDiminishing(DiminishingGroup group);
-        float ApplyDiminishingToDuration(DiminishingGroup  group, int32 &duration, Unit* caster, DiminishingLevels Level, int32 limitduration);
-        void ApplyDiminishingAura(DiminishingGroup  group, bool apply);
-        void ClearDiminishings() { m_Diminishing.clear(); }
+        DiminishingLevels GetDiminishing(DiminishingGroup group);
+        void IncrDiminishing(SpellInfo const* auraSpellInfo, bool triggered);
+        float ApplyDiminishingToDuration(SpellInfo const* auraSpellInfo, bool triggered, int32& duration, Unit* caster, DiminishingLevels previousLevel);
+        void ApplyDiminishingAura(DiminishingGroup group, bool apply);
+        void ClearDiminishings();
 
         // target dependent range checks
         float GetSpellMaxRangeForTarget(Unit const* target, SpellInfo const* spellInfo) const;
@@ -1429,7 +1433,7 @@ class TC_GAME_API Unit : public WorldObject
         void Dismount();
 
         uint16 GetMaxSkillValueForLevel(Unit const* target = NULL) const { return (target ? getLevelForTarget(target) : getLevel()) * 5; }
-        void DealDamageMods(Unit* victim, uint32 &damage, uint32* absorb);
+        void DealDamageMods(Unit const* victim, uint32 &damage, uint32* absorb) const;
         uint32 DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDamage = NULL, DamageEffectType damagetype = DIRECT_DAMAGE, SpellSchoolMask damageSchoolMask = SPELL_SCHOOL_MASK_NORMAL, SpellInfo const* spellProto = NULL, bool durabilityLoss = true);
         void Kill(Unit* victim, bool durabilityLoss = true);
         void KillSelf(bool durabilityLoss = true) { Kill(this, durabilityLoss); }
@@ -2029,8 +2033,8 @@ class TC_GAME_API Unit : public WorldObject
         static bool IsDamageReducedByArmor(SpellSchoolMask damageSchoolMask, SpellInfo const* spellInfo = NULL, uint8 effIndex = MAX_SPELL_EFFECTS);
         uint32 CalcArmorReducedDamage(Unit* victim, const uint32 damage, SpellInfo const* spellInfo, WeaponAttackType attackType = MAX_ATTACK);
         uint32 CalcSpellResistance(Unit* victim, SpellSchoolMask schoolMask, SpellInfo const* spellInfo) const;
-        void CalcAbsorbResist(Unit* victim, SpellSchoolMask schoolMask, DamageEffectType damagetype, uint32 const damage, uint32* absorb, uint32* resist, SpellInfo const* spellInfo = NULL);
-        void CalcHealAbsorb(HealInfo& healInfo);
+        void CalcAbsorbResist(DamageInfo& damageInfo);
+        void CalcHealAbsorb(HealInfo& healInfo) const;
 
         void  UpdateSpeed(UnitMoveType mtype);
         float GetSpeed(UnitMoveType mtype) const;

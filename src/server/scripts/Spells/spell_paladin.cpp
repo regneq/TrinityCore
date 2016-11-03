@@ -1303,6 +1303,8 @@ class spell_pal_infusion_of_light : public SpellScriptLoader
                             Unit* target = GetTarget();
                             int32 duration = sSpellMgr->AssertSpellInfo(SPELL_PALADIN_FLASH_OF_LIGHT_PROC)->GetMaxDuration() / 1000;
                             int32 pct = GetSpellInfo()->Effects[EFFECT_2].CalcValue();
+                            ASSERT(duration > 0);
+
                             int32 bp0 = CalculatePct(healInfo->GetHeal() / duration, pct);
 
                             // Item - Paladin T9 Holy 4P Bonus
@@ -1540,7 +1542,7 @@ class spell_pal_judgement_of_light_heal : public SpellScriptLoader
                 Unit* caster = eventInfo.GetProcTarget();
                 int32 amount = static_cast<int32>(caster->CountPctFromMaxHealth(aurEff->GetAmount()));
 
-                caster->CastCustomSpell(SPELL_PALADIN_JUDGEMENT_OF_LIGHT_HEAL, SPELLVALUE_BASE_POINT0, amount, (Unit*)nullptr, true);
+                caster->CastCustomSpell(SPELL_PALADIN_JUDGEMENT_OF_LIGHT_HEAL, SPELLVALUE_BASE_POINT0, amount, (Unit*)nullptr, true, nullptr, aurEff, GetCasterGUID());
             }
 
             void Register() override
@@ -1584,7 +1586,7 @@ class spell_pal_judgement_of_wisdom_mana : public SpellScriptLoader
                 Unit* caster = eventInfo.GetProcTarget();
                 int32 amount = CalculatePct(static_cast<int32>(caster->GetCreateMana()), aurEff->GetAmount());
 
-                caster->CastCustomSpell(SPELL_PALADIN_JUDGEMENT_OF_WISDOM_MANA, SPELLVALUE_BASE_POINT0, amount, (Unit*)nullptr, true);
+                caster->CastCustomSpell(SPELL_PALADIN_JUDGEMENT_OF_WISDOM_MANA, SPELLVALUE_BASE_POINT0, amount, (Unit*)nullptr, true, nullptr, aurEff, GetCasterGUID());
             }
 
             void Register() override

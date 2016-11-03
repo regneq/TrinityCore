@@ -586,8 +586,6 @@ m_caster((info->HasAttribute(SPELL_ATTR6_CAST_BY_CHARMER) && caster->GetCharmerO
     destTarget = NULL;
     damage = 0;
     effectHandleMode = SPELL_EFFECT_HANDLE_LAUNCH;
-    m_diminishLevel = DIMINISHING_LEVEL_1;
-    m_diminishGroup = DIMINISHING_NONE;
     m_damage = 0;
     m_healing = 0;
     m_procAttacker = 0;
@@ -1994,10 +1992,16 @@ void Spell::prepareDataForTriggerSystem()
 
     // Hunter trap spells - activation proc for Lock and Load, Entrapment and Misdirection
     if (m_spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER &&
-        (m_spellInfo->SpellFamilyFlags[0] & 0x18 ||     // Freezing and Frost Trap, Freezing Arrow
-        m_spellInfo->Id == 57879 ||                     // Snake Trap - done this way to avoid double proc
-        m_spellInfo->SpellFamilyFlags[2] & 0x00024000)) // Explosive and Immolation Trap
+        (m_spellInfo->SpellFamilyFlags[0] & 0x18 ||         // Freezing and Frost Trap, Freezing Arrow
+            m_spellInfo->Id == 57879 ||                     // Snake Trap - done this way to avoid double proc
+            m_spellInfo->SpellFamilyFlags[2] & 0x00024000)) // Explosive and Immolation Trap
+    {
         m_procAttacker |= PROC_FLAG_DONE_TRAP_ACTIVATION;
+
+        // also fill up other flags (DoAllEffectOnTarget only fills up flag if both are not set)
+        m_procAttacker |= PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_NEG;
+        m_procVictim |= PROC_FLAG_TAKEN_SPELL_MAGIC_DMG_CLASS_NEG;
+    }
 
     // Hellfire Effect - trigger as DOT
     if (m_spellInfo->SpellFamilyName == SPELLFAMILY_WARLOCK && m_spellInfo->SpellFamilyFlags[0] & 0x00000040)
@@ -2052,7 +2056,7 @@ void Spell::AddUnitTarget(Unit* target, uint32 effectMask, bool checkIfValid /*=
         return;
 
     if (checkIfValid)
-        if (m_spellInfo->CheckTarget(m_caster, target, implicit) != SPELL_CAST_OK)
+        if (m_spellInfo->CheckTarget(m_caster, target, implicit || m_caster->GetEntry() == WORLD_TRIGGER) != SPELL_CAST_OK) // skip stealth checks for GO casts
             return;
 
     // Check for effect immune skip if immuned
@@ -2354,7 +2358,19 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
         if (m_damage > 0)
             positive = false;
         else if (!m_healing)
-            positive = m_spellInfo->IsPositive();
+        {
+            for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            {
+                if (!(target->effectMask & (1 << i)))
+                    continue;
+
+                if (!m_spellInfo->IsPositiveEffect(i))
+                {
+                    positive = false;
+                    break;
+                }
+            }
+        }
 
         switch (m_spellInfo->DmgClass)
         {
@@ -2553,12 +2569,7 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
             return SPELL_MISS_EVADE;
 
         if (m_caster->_IsValidAttackTarget(unit, m_spellInfo))
-        {
             unit->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_HITBYSPELL);
-
-            if (!m_spellInfo->HasAttribute(SPELL_ATTR0_CU_DONT_BREAK_STEALTH))
-                unit->RemoveAurasByType(SPELL_AURA_MOD_STEALTH);
-        }
         else if (m_caster->IsFriendlyTo(unit))
         {
             // for delayed spells ignore negative spells (after duel end) for friendly targets
@@ -2588,16 +2599,19 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
             aura_effmask |= 1 << i;
 
     // Get Data Needed for Diminishing Returns, some effects may have multiple auras, so this must be done on spell hit, not aura add
-    m_diminishGroup = GetDiminishingReturnsGroupForSpell(m_spellInfo, m_triggeredByAuraSpell != nullptr);
-    if (m_diminishGroup && aura_effmask)
+    bool const triggered = m_triggeredByAuraSpell != nullptr;
+    DiminishingGroup const diminishGroup = m_spellInfo->GetDiminishingReturnsGroupForSpell(triggered);
+
+    DiminishingLevels diminishLevel = DIMINISHING_LEVEL_1;
+    if (diminishGroup && aura_effmask)
     {
-        m_diminishLevel = unit->GetDiminishing(m_diminishGroup);
-        DiminishingReturnsType type = GetDiminishingReturnsGroupType(m_diminishGroup);
+        diminishLevel = unit->GetDiminishing(diminishGroup);
+        DiminishingReturnsType type = m_spellInfo->GetDiminishingReturnsGroupType(triggered);
         // Increase Diminishing on unit, current informations for actually casts will use values above
         if ((type == DRTYPE_PLAYER &&
             (unit->GetCharmerOrOwnerPlayerOrPlayerItself() || (unit->GetTypeId() == TYPEID_UNIT && unit->ToCreature()->GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_ALL_DIMINISH))) ||
             type == DRTYPE_ALL)
-            unit->IncrDiminishing(m_diminishGroup);
+            unit->IncrDiminishing(m_spellInfo, triggered);
     }
 
     if (aura_effmask)
@@ -2640,8 +2654,7 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
 
                 // Now Reduce spell duration using data received at spell hit
                 int32 duration = m_spellAura->GetMaxDuration();
-                int32 limitduration = GetDiminishingReturnsLimitDuration(m_diminishGroup, aurSpellInfo);
-                float diminishMod = unit->ApplyDiminishingToDuration(m_diminishGroup, duration, m_originalCaster, m_diminishLevel, limitduration);
+                float diminishMod = unit->ApplyDiminishingToDuration(aurSpellInfo, triggered, duration, m_originalCaster, diminishLevel);
 
                 // unit is immune to aura if it was diminished to 0 duration
                 if (diminishMod == 0.0f)
@@ -2656,7 +2669,7 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool scaleA
                 }
                 else
                 {
-                    ((UnitAura*)m_spellAura)->SetDiminishGroup(m_diminishGroup);
+                    ((UnitAura*)m_spellAura)->SetDiminishGroup(diminishGroup);
 
                     bool positive = m_spellAura->GetSpellInfo()->IsPositive();
                     if (AuraApplication* aurApp = m_spellAura->GetApplicationOfTarget(m_originalCaster->GetGUID()))
@@ -3457,9 +3470,6 @@ uint64 Spell::handle_delayed(uint64 t_offset)
 void Spell::_handle_immediate_phase()
 {
     m_spellAura = NULL;
-    // initialize Diminishing Returns Data
-    m_diminishLevel = DIMINISHING_LEVEL_1;
-    m_diminishGroup = DIMINISHING_NONE;
 
     // handle some immediate features of the spell here
     HandleThreatSpells();
@@ -3586,8 +3596,12 @@ void Spell::update(uint32 difftime)
                 if (!UpdateChanneledTargetList())
                 {
                     TC_LOG_DEBUG("spells", "Channeled spell %d is removed due to lack of targets", m_spellInfo->Id);
-                    SendChannelUpdate(0);
-                    finish();
+                    m_timer = 0;
+
+                    // Also remove applied auras
+                    for (TargetInfo const& target : m_UniqueTargetInfo)
+                        if (Unit* unit = m_caster->GetGUID() == target.targetGUID ? m_caster : ObjectAccessor::GetUnit(*m_caster, target.targetGUID))
+                            unit->RemoveOwnedAura(m_spellInfo->Id, m_originalCasterGUID, 0, AURA_REMOVE_BY_CANCEL);
                 }
 
                 if (m_timer > 0)
@@ -4692,7 +4706,7 @@ void Spell::HandleThreatSpells()
             continue;
 
         // positive spells distribute threat among all units that are in combat with target, like healing
-        if (m_spellInfo->_IsPositiveSpell())
+        if (m_spellInfo->IsPositive())
             target->getHostileRefManager().threatAssist(m_caster, threatToAdd, m_spellInfo);
         // for negative spells threat gets distributed among affected targets
         else
@@ -4703,7 +4717,7 @@ void Spell::HandleThreatSpells()
             target->AddThreat(m_caster, threatToAdd, m_spellInfo->GetSchoolMask(), m_spellInfo);
         }
     }
-    TC_LOG_DEBUG("spells", "Spell %u, added an additional %f threat for %s %u target(s)", m_spellInfo->Id, threat, m_spellInfo->_IsPositiveSpell() ? "assisting" : "harming", uint32(m_UniqueTargetInfo.size()));
+    TC_LOG_DEBUG("spells", "Spell %u, added an additional %f threat for %s %u target(s)", m_spellInfo->Id, threat, m_spellInfo->IsPositive() ? "assisting" : "harming", uint32(m_UniqueTargetInfo.size()));
 }
 
 void Spell::HandleEffects(Unit* pUnitTarget, Item* pItemTarget, GameObject* pGOTarget, uint32 i, SpellEffectHandleMode mode)
@@ -4894,14 +4908,18 @@ SpellCastResult Spell::CheckCast(bool strict)
     if (!(m_spellInfo->IsPassive() && (!m_targets.GetUnitTarget() || m_targets.GetUnitTarget() == m_caster)))
     {
         // Check explicit target for m_originalCaster - todo: get rid of such workarounds
-        SpellCastResult castResult = m_spellInfo->CheckExplicitTarget(m_originalCaster ? m_originalCaster : m_caster, m_targets.GetObjectTarget(), m_targets.GetItemTarget());
+        Unit* caster = m_caster;
+        if (m_originalCaster && m_caster->GetEntry() != WORLD_TRIGGER) // Do a simplified check for gameobject casts
+            caster = m_originalCaster;
+
+        SpellCastResult castResult = m_spellInfo->CheckExplicitTarget(caster, m_targets.GetObjectTarget(), m_targets.GetItemTarget());
         if (castResult != SPELL_CAST_OK)
             return castResult;
     }
 
     if (Unit* target = m_targets.GetUnitTarget())
     {
-        SpellCastResult castResult = m_spellInfo->CheckTarget(m_caster, target, false);
+        SpellCastResult castResult = m_spellInfo->CheckTarget(m_caster, target, m_caster->GetEntry() == WORLD_TRIGGER); // skip stealth checks for GO casts
         if (castResult != SPELL_CAST_OK)
             return castResult;
 

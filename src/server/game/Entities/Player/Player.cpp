@@ -939,12 +939,21 @@ uint32 Player::EnvironmentalDamage(EnviromentalDamage type, uint32 damage)
     // Absorb, resist some environmental damage type
     uint32 absorb = 0;
     uint32 resist = 0;
-    if (type == DAMAGE_LAVA)
-        CalcAbsorbResist(this, SPELL_SCHOOL_MASK_FIRE, DIRECT_DAMAGE, damage, &absorb, &resist);
-    else if (type == DAMAGE_SLIME)
-        CalcAbsorbResist(this, SPELL_SCHOOL_MASK_NATURE, DIRECT_DAMAGE, damage, &absorb, &resist);
-
-    damage -= absorb + resist;
+    switch (type)
+    {
+        case DAMAGE_LAVA:
+        case DAMAGE_SLIME:
+        {
+            DamageInfo dmgInfo(this, this, damage, nullptr, type == DAMAGE_LAVA ? SPELL_SCHOOL_MASK_FIRE : SPELL_SCHOOL_MASK_NATURE, DIRECT_DAMAGE, BASE_ATTACK);
+            CalcAbsorbResist(dmgInfo);
+            absorb = dmgInfo.GetAbsorb();
+            resist = dmgInfo.GetResist();
+            damage = dmgInfo.GetDamage();
+            break;
+        }
+        default:
+            break;
+    }
 
     DealDamageMods(this, damage, &absorb);
 
@@ -14843,7 +14852,9 @@ bool Player::CanRewardQuest(Quest const* quest, uint32 reward, bool msg)
             InventoryResult res = CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, quest->RewardChoiceItemId[reward], quest->RewardChoiceItemCount[reward]);
             if (res != EQUIP_ERR_OK)
             {
-                SendEquipError(res, nullptr, nullptr, quest->RewardChoiceItemId[reward]);
+                if (msg)
+                    SendQuestFailed(quest->GetQuestId(), res);
+
                 return false;
             }
         }
@@ -14858,7 +14869,9 @@ bool Player::CanRewardQuest(Quest const* quest, uint32 reward, bool msg)
                 InventoryResult res = CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, quest->RewardItemId[i], quest->RewardItemIdCount[i]);
                 if (res != EQUIP_ERR_OK)
                 {
-                    SendEquipError(res, nullptr, nullptr, quest->RewardItemId[i]);
+                    if (msg)
+                        SendQuestFailed(quest->GetQuestId(), res);
+
                     return false;
                 }
             }
@@ -15007,20 +15020,20 @@ void Player::RewardQuest(Quest const* quest, uint32 reward, Object* questGiver, 
     {
         if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(quest->RequiredItemId[i]))
         {
-            if (quest->RequiredItemCount[i] > 0 && (itemTemplate->Bonding == BIND_QUEST_ITEM || itemTemplate->Bonding == BIND_QUEST_ITEM1))
-                DestroyItemCount(quest->RequiredItemId[i], 9999, true, true);
+            if (quest->RequiredItemCount[i] > 0 && itemTemplate->Bonding == BIND_QUEST_ITEM && !quest->IsRepeatable() && !HasQuestForItem(quest->RequiredItemId[i], quest_id, true))
+                DestroyItemCount(quest->RequiredItemId[i], 9999, true);
             else
-                DestroyItemCount(quest->RequiredItemId[i], quest->RequiredItemCount[i], true, true);
+                DestroyItemCount(quest->RequiredItemId[i], quest->RequiredItemCount[i], true);
         }
     }
     for (uint8 i = 0; i < QUEST_SOURCE_ITEM_IDS_COUNT; ++i)
     {
         if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(quest->ItemDrop[i]))
         {
-            if (quest->ItemDropQuantity[i] > 0 && (itemTemplate->Bonding == BIND_QUEST_ITEM || itemTemplate->Bonding == BIND_QUEST_ITEM1))
-                DestroyItemCount(quest->ItemDrop[i], 9999, true, true);
+            if (quest->ItemDropQuantity[i] > 0 && itemTemplate->Bonding == BIND_QUEST_ITEM && !quest->IsRepeatable() && !HasQuestForItem(quest->ItemDrop[i], quest_id))
+                DestroyItemCount(quest->ItemDrop[i], 9999, true);
             else
-                DestroyItemCount(quest->ItemDrop[i], quest->ItemDropQuantity[i], true, true);
+                DestroyItemCount(quest->ItemDrop[i], quest->ItemDropQuantity[i], true);
         }
     }
 
@@ -15240,13 +15253,13 @@ void Player::FailQuest(uint32 questId)
         // Destroy quest items on quest failure.
         for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
             if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(quest->RequiredItemId[i]))
-                if (quest->RequiredItemCount[i] > 0 && (itemTemplate->Bonding == BIND_QUEST_ITEM || itemTemplate->Bonding == BIND_QUEST_ITEM1))
-                    DestroyItemCount(quest->RequiredItemId[i], 9999, true, true);
+                if (quest->RequiredItemCount[i] > 0 && itemTemplate->Bonding == BIND_QUEST_ITEM)
+                    DestroyItemCount(quest->RequiredItemId[i], 9999, true);
 
         for (uint8 i = 0; i < QUEST_SOURCE_ITEM_IDS_COUNT; ++i)
             if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(quest->ItemDrop[i]))
-                if (quest->ItemDropQuantity[i] > 0 && (itemTemplate->Bonding == BIND_QUEST_ITEM || itemTemplate->Bonding == BIND_QUEST_ITEM1))
-                    DestroyItemCount(quest->ItemDrop[i], 9999, true, true);
+                if (quest->ItemDropQuantity[i] > 0 && itemTemplate->Bonding == BIND_QUEST_ITEM)
+                    DestroyItemCount(quest->ItemDrop[i], 9999, true);
     }
 }
 
@@ -15257,13 +15270,13 @@ void Player::AbandonQuest(uint32 questId)
         // Destroy quest items on quest abandon.
         for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
             if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(quest->RequiredItemId[i]))
-                if (quest->RequiredItemCount[i] > 0 && (itemTemplate->Bonding == BIND_QUEST_ITEM || itemTemplate->Bonding == BIND_QUEST_ITEM1))
-                    DestroyItemCount(quest->RequiredItemId[i], 9999, true, true);
+                if (quest->RequiredItemCount[i] > 0 && itemTemplate->Bonding == BIND_QUEST_ITEM)
+                    DestroyItemCount(quest->RequiredItemId[i], 9999, true);
 
         for (uint8 i = 0; i < QUEST_SOURCE_ITEM_IDS_COUNT; ++i)
             if (ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(quest->ItemDrop[i]))
-                if (quest->ItemDropQuantity[i] > 0 && (itemTemplate->Bonding == BIND_QUEST_ITEM || itemTemplate->Bonding == BIND_QUEST_ITEM1))
-                    DestroyItemCount(quest->ItemDrop[i], 9999, true, true);
+                if (quest->ItemDropQuantity[i] > 0 && itemTemplate->Bonding == BIND_QUEST_ITEM)
+                    DestroyItemCount(quest->ItemDrop[i], 9999, true);
     }
 }
 
@@ -15967,20 +15980,17 @@ QuestGiverStatus Player::GetQuestDialogStatus(Object* questgiver)
         if (!quest)
             continue;
 
-        if (!sConditionMgr->IsObjectMeetingNotGroupedConditions(CONDITION_SOURCE_TYPE_QUEST_SHOW_MARK, quest->GetQuestId(), this))
+        if (!sConditionMgr->IsObjectMeetingNotGroupedConditions(CONDITION_SOURCE_TYPE_QUEST_ACCEPT, quest->GetQuestId(), this))
             continue;
 
         QuestStatus status = GetQuestStatus(questId);
-        if ((status == QUEST_STATUS_COMPLETE && !GetQuestRewardStatus(questId)) ||
-            (quest->IsAutoComplete() && CanTakeQuest(quest, false)))
-        {
-            if (quest->IsAutoComplete() && quest->IsRepeatable() && !quest->IsDailyOrWeekly())
-                result2 = DIALOG_STATUS_REWARD_REP;
-            else
-                result2 = DIALOG_STATUS_REWARD;
-        }
+        if (status == QUEST_STATUS_COMPLETE && !GetQuestRewardStatus(questId))
+            result2 = DIALOG_STATUS_REWARD;
         else if (status == QUEST_STATUS_INCOMPLETE)
             result2 = DIALOG_STATUS_INCOMPLETE;
+
+        if (quest->IsAutoComplete() && CanTakeQuest(quest, false) && quest->IsRepeatable() && !quest->IsDailyOrWeekly())
+            result2 = DIALOG_STATUS_REWARD_REP;
 
         if (result2 > result)
             result = result2;
@@ -15994,7 +16004,7 @@ QuestGiverStatus Player::GetQuestDialogStatus(Object* questgiver)
         if (!quest)
             continue;
 
-        if (!sConditionMgr->IsObjectMeetingNotGroupedConditions(CONDITION_SOURCE_TYPE_QUEST_SHOW_MARK, quest->GetQuestId(), this))
+        if (!sConditionMgr->IsObjectMeetingNotGroupedConditions(CONDITION_SOURCE_TYPE_QUEST_ACCEPT, quest->GetQuestId(), this))
             continue;
 
         QuestStatus status = GetQuestStatus(questId);
@@ -16004,9 +16014,7 @@ QuestGiverStatus Player::GetQuestDialogStatus(Object* questgiver)
             {
                 if (SatisfyQuestLevel(quest, false))
                 {
-                    if (quest->IsAutoComplete())
-                        result2 = DIALOG_STATUS_REWARD_REP;
-                    else if (getLevel() <= (GetQuestLevel(quest) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
+                    if (getLevel() <= (GetQuestLevel(quest) + sWorld->getIntConfig(CONFIG_QUEST_LOW_LEVEL_HIDE_DIFF)))
                     {
                         if (quest->IsDaily())
                             result2 = DIALOG_STATUS_AVAILABLE_REP;
@@ -16567,12 +16575,12 @@ void Player::ReputationChanged2(FactionEntry const* factionEntry)
     }
 }
 
-bool Player::HasQuestForItem(uint32 itemid) const
+bool Player::HasQuestForItem(uint32 itemid, uint32 excludeQuestId /* 0 */, bool turnIn /* false */) const
 {
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {
         uint32 questid = GetQuestSlotQuestId(i);
-        if (questid == 0)
+        if (questid == 0 || questid == excludeQuestId)
             continue;
 
         QuestStatusMap::const_iterator qs_itr = m_QuestStatus.find(questid);
@@ -16581,7 +16589,7 @@ bool Player::HasQuestForItem(uint32 itemid) const
 
         QuestStatusData const& q_status = qs_itr->second;
 
-        if (q_status.Status == QUEST_STATUS_INCOMPLETE)
+        if ((q_status.Status == QUEST_STATUS_INCOMPLETE) || (turnIn && q_status.Status == QUEST_STATUS_COMPLETE))
         {
             Quest const* qinfo = sObjectMgr->GetQuestTemplate(questid);
             if (!qinfo)
@@ -16596,7 +16604,7 @@ bool Player::HasQuestForItem(uint32 itemid) const
             // This part for ReqItem drop
             for (uint8 j = 0; j < QUEST_ITEM_OBJECTIVES_COUNT; ++j)
             {
-                if (itemid == qinfo->RequiredItemId[j] && q_status.ItemCount[j] < qinfo->RequiredItemCount[j])
+                if ((itemid == qinfo->RequiredItemId[j] && q_status.ItemCount[j] < qinfo->RequiredItemCount[j]) || (turnIn && q_status.ItemCount[j] >= qinfo->RequiredItemCount[j]))
                     return true;
             }
             // This part - for ReqSource
@@ -16606,17 +16614,17 @@ bool Player::HasQuestForItem(uint32 itemid) const
                 if (qinfo->ItemDrop[j] == itemid)
                 {
                     ItemTemplate const* pProto = sObjectMgr->GetItemTemplate(itemid);
-
+                    uint32 ownedCount = GetItemCount(itemid, true);
                     // 'unique' item
-                    if (pProto->MaxCount && int32(GetItemCount(itemid, true)) < pProto->MaxCount)
+                    if ((pProto->MaxCount && int32(ownedCount) < pProto->MaxCount) || (turnIn && int32(ownedCount) >= pProto->MaxCount))
                         return true;
 
                     // allows custom amount drop when not 0
                     if (qinfo->ItemDropQuantity[j])
                     {
-                        if (GetItemCount(itemid, true) < qinfo->ItemDropQuantity[j])
+                        if ((ownedCount < qinfo->ItemDropQuantity[j]) || (turnIn && ownedCount >= qinfo->ItemDropQuantity[j]))
                             return true;
-                    } else if (GetItemCount(itemid, true) < pProto->GetMaxStackSize())
+                    } else if (ownedCount < pProto->GetMaxStackSize())
                         return true;
                 }
             }
@@ -19559,7 +19567,6 @@ void Player::_SaveAuras(SQLTransaction& trans)
         stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_AURA);
         stmt->setUInt32(index++, GetGUID().GetCounter());
         stmt->setUInt64(index++, itr->second->GetCasterGUID().GetRawValue());
-        stmt->setUInt64(index++, itr->second->GetCastItemGUID().GetRawValue());
         stmt->setUInt32(index++, itr->second->GetId());
         stmt->setUInt8(index++, effMask);
         stmt->setUInt8(index++, recalculateMask);
@@ -25884,6 +25891,20 @@ void Player::ActivateSpec(uint8 spec)
     UnsummonAllTotems();
     ExitVehicle();
     RemoveAllControlled();
+
+    // remove single target auras at other targets
+    AuraList& scAuras = GetSingleCastAuras();
+    for (AuraList::iterator iter = scAuras.begin(); iter != scAuras.end();)
+    {
+        Aura* aura = *iter;
+        if (aura->GetUnitOwner() != this)
+        {
+            aura->Remove();
+            iter = scAuras.begin();
+        }
+        else
+            ++iter;
+    }
     /*RemoveAllAurasOnDeath();
     if (GetPet())
         GetPet()->RemoveAllAurasOnDeath();*/
