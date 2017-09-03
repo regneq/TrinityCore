@@ -16,66 +16,76 @@
  */
 
 #include "ScriptMgr.h"
+#include "black_temple.h"
+#include "GridNotifiersImpl.h"
+#include "InstanceScript.h"
+#include "Map.h"
+#include "MotionMaster.h"
+#include "ObjectAccessor.h"
+#include "PassiveAI.h"
+#include "Player.h"
 #include "ScriptedCreature.h"
 #include "ScriptedGossip.h"
-#include "PassiveAI.h"
-#include "black_temple.h"
-#include "Player.h"
+#include "SpellAuraEffects.h"
 #include "SpellInfo.h"
 #include "SpellScript.h"
-#include "SpellAuraEffects.h"
-#include "GridNotifiersImpl.h"
+#include "TemporarySummon.h"
 
 enum IllidanSay
 {
     // Illidan
-    SAY_ILLIDAN_MINION              = 0,
-    SAY_ILLIDAN_KILL                = 1,
-    SAY_ILLIDAN_TAKEOFF             = 2,
-    SAY_ILLIDAN_SUMMONFLAMES        = 3,
-    SAY_ILLIDAN_EYE_BLAST           = 4,
-    SAY_ILLIDAN_MORPH               = 5,
-    SAY_ILLIDAN_ENRAGE              = 6,
-    SAY_ILLIDAN_TAUNT               = 7,
-    SAY_ILLIDAN_DUPLICITY           = 8,
-    SAY_ILLIDAN_UNCONVINCED         = 9,
-    SAY_ILLIDAN_PREPARED            = 10,
-    SAY_ILLIDAN_SHADOW_PRISON       = 11,
-    SAY_ILLIDAN_CONFRONT_MAIEV      = 12,
-    SAY_ILLIDAN_FRENZY              = 13,
-    SAY_ILLIDAN_DEFEATED            = 14,
+    SAY_ILLIDAN_MINION                      = 0,
+    SAY_ILLIDAN_KILL                        = 1,
+    SAY_ILLIDAN_TAKEOFF                     = 2,
+    SAY_ILLIDAN_SUMMONFLAMES                = 3,
+    SAY_ILLIDAN_EYE_BLAST                   = 4,
+    SAY_ILLIDAN_MORPH                       = 5,
+    SAY_ILLIDAN_ENRAGE                      = 6,
+    SAY_ILLIDAN_TAUNT                       = 7,
+    SAY_ILLIDAN_DUPLICITY                   = 8,
+    SAY_ILLIDAN_UNCONVINCED                 = 9,
+    SAY_ILLIDAN_PREPARED                    = 10,
+    SAY_ILLIDAN_SHADOW_PRISON               = 11,
+    SAY_ILLIDAN_CONFRONT_MAIEV              = 12,
+    SAY_ILLIDAN_FRENZY                      = 13,
+    SAY_ILLIDAN_DEFEATED                    = 14,
 
     // Maiev Shadowsong
-    SAY_MAIEV_SHADOWSONG_TAUNT      = 0,
-    SAY_MAIEV_SHADOWSONG_APPEAR     = 1,
-    SAY_MAIEV_SHADOWSONG_JUSTICE    = 2,
-    SAY_MAIEV_SHADOWSONG_TRAP       = 3,
-    SAY_MAIEV_SHADOWSONG_DOWN       = 4,
-    SAY_MAIEV_SHADOWSONG_FINISHED   = 5,
-    SAY_MAIEV_SHADOWSONG_OUTRO      = 6,
-    SAY_MAIEV_SHADOWSONG_FAREWELL   = 7,
+    SAY_MAIEV_SHADOWSONG_TAUNT              = 0,
+    SAY_MAIEV_SHADOWSONG_APPEAR             = 1,
+    SAY_MAIEV_SHADOWSONG_JUSTICE            = 2,
+    SAY_MAIEV_SHADOWSONG_TRAP               = 3,
+    SAY_MAIEV_SHADOWSONG_DOWN               = 4,
+    SAY_MAIEV_SHADOWSONG_FINISHED           = 5,
+    SAY_MAIEV_SHADOWSONG_OUTRO              = 6,
+    SAY_MAIEV_SHADOWSONG_FAREWELL           = 7,
 
     // Flame of Azzinoth
-    EMOTE_AZZINOTH_GAZE             = 0,
+    EMOTE_AZZINOTH_GAZE                     = 0,
 
     // Akama
-    SAY_AKAMA_DOOR                  = 0,
-    SAY_AKAMA_ALONE                 = 1,
-    SAY_AKAMA_SALUTE                = 2,
-    SAY_AKAMA_BETRAYER              = 3,
-    SAY_AKAMA_FREE                  = 4,
-    SAY_AKAMA_TIME_HAS_COME         = 5,
-    SAY_AKAMA_MINIONS               = 6,
-    SAY_AKAMA_LIGHT                 = 7,
-    SAY_AKAMA_FINISH                = 8,
+    SAY_AKAMA_DOOR                          = 0,
+    SAY_AKAMA_ALONE                         = 1,
+    SAY_AKAMA_SALUTE                        = 2,
+    SAY_AKAMA_BETRAYER                      = 3,
+    SAY_AKAMA_FREE                          = 4,
+    SAY_AKAMA_TIME_HAS_COME                 = 5,
+    SAY_AKAMA_MINIONS                       = 6,
+    SAY_AKAMA_LIGHT                         = 7,
+    SAY_AKAMA_FINISH                        = 8,
 
     // Spirits
-    SAY_SPIRIT_ALONE                = 0,
+    SAY_SPIRIT_ALONE                        = 0,
 
     // Direct Sounds
-    ILLIDAN_TAKEOFF_SOUND_ID        = 11479,
-    ILLIDAN_WARGLAIVE_SOUND_ID      = 11480,
-    WARGLAIVE_SPAWN_SOUND_ID        = 11689
+    ILLIDAN_TAKEOFF_SOUND_ID                = 11479,
+    ILLIDAN_WARGLAIVE_SOUND_ID              = 11480,
+    WARGLAIVE_SPAWN_SOUND_ID                = 11689,
+    EVENT_BT_SUMMIT_WALK_SOUND_ID           = 11717,
+    EVENT_BT_SUMMIT_WALK_3_SOUND_ID         = 11725,
+    EVENT_BT_STORM_WALK_HERO_2_SOUND_ID     = 11727,
+    EVENT_BT_STORM_WALK_UNI_3_SOUND_ID      = 11729,
+    EVENT_BT_ARRIVAL_WALK_HERO_1_SOUND_ID   = 11728
 };
 
 enum IllidanSpells
@@ -284,6 +294,7 @@ enum IllidanEvents
     EVENT_AKAMA_LIGHT_TEXT,
     EVENT_FINAL_SALUTE,
     EVENT_AKAMA_DESPAWN,
+    EVENT_AKAMA_START_SOUND,
 
     // Illidan Stormrage
     EVENT_START_INTRO,
@@ -428,7 +439,7 @@ public:
 
     bool operator()(Unit* unit) const
     {
-        return _me->GetDistance2d(unit) > 25.0f;
+        return unit->GetTypeId() == TYPEID_PLAYER && _me->GetDistance2d(unit) > 25.0f;
     }
 
 private:
@@ -468,6 +479,8 @@ public:
         {
             _EnterCombat();
             me->SetCanDualWield(true);
+            if (GameObject* musicController = instance->GetGameObject(DATA_ILLIDAN_MUSIC_CONTROLLER))
+                musicController->PlayDirectMusic(EVENT_BT_SUMMIT_WALK_3_SOUND_ID);
             specialEvents.ScheduleEvent(EVENT_EVADE_CHECK, Seconds(10));
             specialEvents.ScheduleEvent(EVENT_BERSERK, Minutes(25));
             ScheduleEvents(GROUP_PHASE_1, GROUP_PHASE_1);
@@ -511,6 +524,7 @@ public:
                     events.ScheduleEvent(EVENT_SHADOW_BLAST, Seconds(1), group);
                     events.ScheduleEvent(EVENT_FLAME_BURST, Seconds(6), group);
                     events.ScheduleEvent(EVENT_SHADOW_DEMON, Seconds(18), Seconds(30), group);
+                    break;
                 case GROUP_PHASE_4:
                     ScheduleEvents(GROUP_PHASE_3, group);
                     events.ScheduleEvent(EVENT_FRENZY, Seconds(40), group);
@@ -525,10 +539,7 @@ public:
             BossAI::JustSummoned(summon);
             if (summon->GetEntry() == NPC_ILLIDARI_ELITE)
                 if (Creature* akama = instance->GetCreature(DATA_AKAMA))
-                {
-                    summon->CombatStart(akama);
-                    summon->AddThreat(akama, 1000.0f);
-                }
+                    AddThreat(akama, 1000.0f, summon);
         }
 
         void SummonedCreatureDies(Creature* summon, Unit* /*killer*/) override
@@ -667,7 +678,7 @@ public:
 
         void EnterEvadeModeIfNeeded()
         {
-            Map::PlayerList const &players = me->GetMap()->GetPlayers();
+            Map::PlayerList const& players = me->GetMap()->GetPlayers();
             for (Map::PlayerList::const_iterator i = players.begin(); i != players.end(); ++i)
                 if (Player* player = i->GetSource())
                     if (player->IsAlive() && !player->IsGameMaster() && CheckBoundary(player))
@@ -794,7 +805,7 @@ public:
                         events.ScheduleEvent(EVENT_ENCOUNTER_START, Seconds(3), GROUP_PHASE_ALL);
                         break;
                     case EVENT_ENCOUNTER_START:
-                        me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
+                        me->SetImmuneToAll(false);
                         DoZoneInCombat();
                         if (Creature* akama = instance->GetCreature(DATA_AKAMA))
                             akama->AI()->DoAction(ACTION_START_ENCOUNTER);
@@ -837,6 +848,8 @@ public:
                         pos.Relocate(triggers.front());
                         pos.SetOrientation(0.0f);
                         me->GetMotionMaster()->MovePoint(POINT_THROW_GLAIVE, pos);
+                        if (GameObject* musicController = instance->GetGameObject(DATA_ILLIDAN_MUSIC_CONTROLLER))
+                            musicController->PlayDirectMusic(EVENT_BT_STORM_WALK_HERO_2_SOUND_ID);
                         break;
                     }
                     case EVENT_THROW_WARGLAIVE:
@@ -849,7 +862,7 @@ public:
                         events.ScheduleEvent(EVENT_FLY_TO_RANDOM_PILLAR, Seconds(2), GROUP_PHASE_ALL);
                         break;
                     case EVENT_CHANGE_ORIENTATION:
-                        me->SetFacingTo(_orientation, true);
+                        me->SetFacingTo(_orientation);
                         break;
                     case EVENT_FLY:
                         ChangeOrientation(3.137039f);
@@ -866,7 +879,7 @@ public:
                     case EVENT_FACE_MIDDLE:
                     {
                         float angle = me->GetAngle(IllidanMiddlePoint);
-                        me->SetFacingTo(angle, true);
+                        me->SetFacingTo(angle);
                         break;
                     }
                     case EVENT_EYE_BLAST:
@@ -905,6 +918,8 @@ public:
                         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                         me->SetReactState(REACT_AGGRESSIVE);
                         ScheduleEvents(GROUP_PHASE_3, GROUP_PHASE_3);
+                        if (GameObject* musicController = instance->GetGameObject(DATA_ILLIDAN_MUSIC_CONTROLLER))
+                            musicController->PlayDirectMusic(EVENT_BT_STORM_WALK_UNI_3_SOUND_ID);
                         break;
                     case EVENT_AGONIZING_FLAMES:
                         DoCastSelf(SPELL_AGONIZING_FLAMES_SELECTOR);
@@ -921,7 +936,7 @@ public:
                         events.ScheduleEvent(EVENT_SCHEDULE_DEMON_SPELLS, Seconds(15));
                         break;
                     case EVENT_SCHEDULE_DEMON_SPELLS:
-                        DoResetThreat();
+                        ResetThreatList();
                         ScheduleEvents(GROUP_PHASE_DEMON, GROUP_PHASE_DEMON);
                         break;
                     case EVENT_DEMON_TEXT:
@@ -930,7 +945,7 @@ public:
                     case EVENT_RESUME_COMBAT_DEMON:
                     {
                         uint8 group = _phase == PHASE_3 ? GROUP_PHASE_3 : GROUP_PHASE_4;
-                        DoResetThreat();
+                        ResetThreatList();
                         ScheduleEvents(group, group);
                         me->LoadEquipment(1, true);
                         break;
@@ -979,6 +994,8 @@ public:
                         break;
                     case EVENT_DEFEATED_TEXT:
                         Talk(SAY_ILLIDAN_DEFEATED);
+                        if (GameObject* musicController = instance->GetGameObject(DATA_ILLIDAN_MUSIC_CONTROLLER))
+                            musicController->PlayDirectMusic(EVENT_BT_ARRIVAL_WALK_HERO_1_SOUND_ID);
                         events.ScheduleEvent(EVENT_QUIET_SUICIDE, Seconds(18));
                         break;
                     case EVENT_QUIET_SUICIDE:
@@ -1040,7 +1057,7 @@ public:
             _isTeleportToMinions = false;
         }
 
-        void sGossipSelect(Player* player, uint32 /*menuId*/, uint32 gossipListId) override
+        bool GossipSelect(Player* player, uint32 /*menuId*/, uint32 gossipListId) override
         {
             if (gossipListId == GOSSIP_START_INTRO)
             {
@@ -1059,6 +1076,7 @@ public:
                 me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                 CloseGossipMenuFor(player);
             }
+            return false;
         }
 
         bool CanAIAttack(Unit const* who) const override
@@ -1161,7 +1179,7 @@ public:
                     break;
                 case POINT_MINIONS:
                     _events.SetPhase(PHASE_MINIONS);
-                    me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                    me->SetImmuneToNPC(false);
                     me->SetReactState(REACT_AGGRESSIVE);
                     if (Creature* illidan = _instance->GetCreature(DATA_ILLIDAN_STORMRAGE))
                         illidan->AI()->DoAction(ACTION_START_MINIONS_WEAVE);
@@ -1236,6 +1254,11 @@ public:
                             undalo->CastSpell((Unit*) nullptr, SPELL_DEATHSWORN_DOOR_CHANNEL);
                         if (Creature* olum = ObjectAccessor::GetCreature(*me, _spiritOfOlumGUID))
                             olum->CastSpell((Unit*) nullptr, SPELL_DEATHSWORN_DOOR_CHANNEL);
+                        _events.ScheduleEvent(EVENT_AKAMA_START_SOUND, Seconds(5));
+                        break;
+                    case EVENT_AKAMA_START_SOUND:
+                        if (GameObject* musicController = _instance->GetGameObject(DATA_ILLIDAN_MUSIC_CONTROLLER))
+                            musicController->PlayDirectMusic(EVENT_BT_SUMMIT_WALK_SOUND_ID);
                         break;
                     case EVENT_AKAMA_THANKS:
                         Talk(SAY_AKAMA_SALUTE);
@@ -1274,7 +1297,7 @@ public:
                         me->SetUInt32Value(UNIT_NPC_EMOTESTATE, EMOTE_STATE_READY1H);
                         break;
                     case EVENT_CHANGE_ORIENTATION:
-                        me->SetFacingTo(_orientation, true);
+                        me->SetFacingTo(_orientation);
                         break;
                     case EVENT_HEALING_POTION:
                         if (me->HealthBelowPct(20))
@@ -1289,7 +1312,7 @@ public:
                         me->SetReactState(REACT_PASSIVE);
                         me->AttackStop();
                         me->HandleEmoteCommand(EMOTE_ONESHOT_EXCLAMATION);
-                        me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+                        me->SetImmuneToNPC(true);
                         _events.ScheduleEvent(EVENT_AKAMA_MINIONS_MOVE, Seconds(4));
                         break;
                     case EVENT_AKAMA_MINIONS_MOVE:
@@ -1868,9 +1891,7 @@ class spell_illidan_akama_door_channel : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spell*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_ARCANE_EXPLOSION))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_ARCANE_EXPLOSION });
             }
 
             void OnRemoveDummy(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
@@ -1907,9 +1928,7 @@ class spell_illidan_draw_soul : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_DRAW_SOUL_HEAL))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_DRAW_SOUL_HEAL });
             }
 
             void HandleScriptEffect(SpellEffIndex effIndex)
@@ -1943,9 +1962,7 @@ class spell_illidan_parasitic_shadowfiend : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_SUMMON_PARASITIC_SHADOWFIENDS))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_SUMMON_PARASITIC_SHADOWFIENDS });
             }
 
             void HandleEffectRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
@@ -2007,9 +2024,7 @@ class spell_illidan_tear_of_azzinoth_channel : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_UNCAGED_WRATH))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_UNCAGED_WRATH });
             }
 
             void OnPeriodic(AuraEffect const* /*aurEff*/)
@@ -2050,15 +2065,14 @@ class spell_illidan_flame_blast : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_BLAZE_SUMMON))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_BLAZE_SUMMON });
             }
 
             void HandleBlaze(SpellEffIndex /*effIndex*/)
             {
                 Unit* target = GetHitUnit();
-                target->CastSpell(target, SPELL_BLAZE_SUMMON, true);
+                if (target->GetTypeId() == TYPEID_PLAYER)
+                    target->CastSpell(target, SPELL_BLAZE_SUMMON, true);
             }
 
             void Register() override
@@ -2113,9 +2127,7 @@ class spell_illidan_agonizing_flames : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_AGONIZING_FLAMES))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_AGONIZING_FLAMES });
             }
 
             void FilterTargets(std::list<WorldObject*>& targets)
@@ -2158,9 +2170,7 @@ class spell_illidan_demon_transform1 : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_DEMON_TRANSFORM_2))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_DEMON_TRANSFORM_2 });
             }
 
             void OnPeriodic(AuraEffect const* /*aurEff*/)
@@ -2194,10 +2204,7 @@ class spell_illidan_demon_transform2 : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_DEMON_FORM)
-                    || !sSpellMgr->GetSpellInfo(SPELL_DEMON_TRANSFORM_3))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_DEMON_FORM, SPELL_DEMON_TRANSFORM_3 });
             }
 
             void OnPeriodic(AuraEffect const* aurEff)
@@ -2245,9 +2252,7 @@ class spell_illidan_flame_burst : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_FLAME_BURST_EFFECT))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_FLAME_BURST_EFFECT });
             }
 
             void HandleScriptEffect(SpellEffIndex /*effIndex*/)
@@ -2279,9 +2284,7 @@ class spell_illidan_find_target : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_PARALYZE))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_PARALYZE });
             }
 
             void FilterTargets(std::list<WorldObject*>& targets)
@@ -2302,7 +2305,6 @@ class spell_illidan_find_target : public SpellScriptLoader
                 if (Creature* caster = GetCaster()->ToCreature())
                 {
                     caster->CastSpell(target, SPELL_PARALYZE, true);
-                    caster->ClearUnitState(UNIT_STATE_CASTING);
                     caster->AI()->SetGUID(target->GetGUID(), 0);
                 }
             }
@@ -2399,9 +2401,7 @@ class spell_illidan_caged : public SpellScriptLoader
 
             bool Validate(SpellInfo const* /*spellInfo*/) override
             {
-                if (!sSpellMgr->GetSpellInfo(SPELL_CAGED_DEBUFF))
-                    return false;
-                return true;
+                return ValidateSpellInfo({ SPELL_CAGED_DEBUFF });
             }
 
             void OnPeriodic(AuraEffect const* /*aurEff*/)

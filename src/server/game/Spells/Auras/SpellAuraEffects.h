@@ -39,8 +39,12 @@ class TC_GAME_API AuraEffect
         Unit* GetCaster() const { return GetBase()->GetCaster(); }
         ObjectGuid GetCasterGUID() const { return GetBase()->GetCasterGUID(); }
         Aura* GetBase() const { return m_base; }
-        void GetTargetList(std::list<Unit*> & targetList) const;
-        void GetApplicationList(std::list<AuraApplication*> & applicationList) const;
+
+        template <typename Container>
+        void GetTargetList(Container& targetContainer) const;
+
+        template <typename Container>
+        void GetApplicationList(Container& applicationContainer) const;
 
         SpellInfo const* GetSpellInfo() const { return m_spellInfo; }
         uint32 GetId() const { return m_spellInfo->Id; }
@@ -141,6 +145,7 @@ class TC_GAME_API AuraEffect
         void HandleModStealth(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleModStealthLevel(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleModStealthDetect(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleDetectAmore(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleSpiritOfRedemption(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleAuraGhost(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandlePhase(AuraApplication const* aurApp, uint8 mode, bool apply) const;
@@ -269,6 +274,7 @@ class TC_GAME_API AuraEffect
         void HandleModDamagePercentDone(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleModOffhandDamagePercent(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleShieldBlockValue(AuraApplication const* aurApp, uint8 mode, bool apply) const;
+        void HandleShieldBlockValuePercent(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         //  power cost
         void HandleModPowerCostPCT(AuraApplication const* aurApp, uint8 mode, bool apply) const;
         void HandleModPowerCost(AuraApplication const* aurApp, uint8 mode, bool apply) const;

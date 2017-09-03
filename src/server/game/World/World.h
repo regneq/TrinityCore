@@ -24,24 +24,23 @@
 #define __WORLD_H
 
 #include "Common.h"
+#include "DatabaseEnvFwd.h"
+#include "LockedQueue.h"
 #include "ObjectGuid.h"
-#include "Timer.h"
-#include "SharedDefines.h"
-#include "QueryResult.h"
 #include "QueryCallbackProcessor.h"
-#include "Realm/Realm.h"
+#include "SharedDefines.h"
+#include "Timer.h"
 
 #include <atomic>
-#include <map>
-#include <set>
 #include <list>
+#include <map>
+#include <unordered_map>
 
-class Object;
+class Player;
 class WorldPacket;
 class WorldSession;
-class Player;
 class WorldSocket;
-class SystemMgr;
+struct Realm;
 
 // ServerMessages.dbc
 enum ServerMessageType
@@ -53,14 +52,14 @@ enum ServerMessageType
     SERVER_MSG_RESTART_CANCELLED  = 5
 };
 
-enum ShutdownMask
+enum ShutdownMask : uint32
 {
     SHUTDOWN_MASK_RESTART = 1,
     SHUTDOWN_MASK_IDLE    = 2,
     SHUTDOWN_MASK_FORCE   = 4
 };
 
-enum ShutdownExitCode
+enum ShutdownExitCode : uint32
 {
     SHUTDOWN_EXIT_CODE = 0,
     ERROR_EXIT_CODE    = 1,
@@ -177,6 +176,9 @@ enum WorldBoolConfigs
     CONFIG_HOTSWAP_INSTALL_ENABLED,
     CONFIG_HOTSWAP_PREFIX_CORRECTION_ENABLED,
     CONFIG_PREVENT_RENAME_CUSTOMIZATION,
+    CONFIG_CACHE_DATA_QUERIES,
+    CONFIG_CHECK_GOBJECT_LOS,
+    CONFIG_RESPAWN_DYNAMIC_ESCORTNPC,
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -200,6 +202,8 @@ enum WorldFloatConfigs
     CONFIG_ARENA_WIN_RATING_MODIFIER_2,
     CONFIG_ARENA_LOSE_RATING_MODIFIER,
     CONFIG_ARENA_MATCHMAKER_RATING_MODIFIER,
+    CONFIG_RESPAWN_DYNAMICRATE_CREATURE,
+    CONFIG_RESPAWN_DYNAMICRATE_GAMEOBJECT,
     FLOAT_CONFIG_VALUE_COUNT
 };
 
@@ -227,13 +231,13 @@ enum WorldIntConfigs
     CONFIG_CHARACTER_CREATING_DISABLED_CLASSMASK,
     CONFIG_CHARACTERS_PER_ACCOUNT,
     CONFIG_CHARACTERS_PER_REALM,
-    CONFIG_HEROIC_CHARACTERS_PER_REALM,
-    CONFIG_CHARACTER_CREATING_MIN_LEVEL_FOR_HEROIC_CHARACTER,
+    CONFIG_DEATH_KNIGHTS_PER_REALM,
+    CONFIG_CHARACTER_CREATING_MIN_LEVEL_FOR_DEATH_KNIGHT,
     CONFIG_SKIP_CINEMATICS,
     CONFIG_MAX_PLAYER_LEVEL,
     CONFIG_MIN_DUALSPEC_LEVEL,
     CONFIG_START_PLAYER_LEVEL,
-    CONFIG_START_HEROIC_PLAYER_LEVEL,
+    CONFIG_START_DEATH_KNIGHT_PLAYER_LEVEL,
     CONFIG_START_PLAYER_MONEY,
     CONFIG_MAX_HONOR_POINTS,
     CONFIG_START_HONOR_POINTS,
@@ -316,8 +320,6 @@ enum WorldIntConfigs
     CONFIG_PVP_TOKEN_MAP_TYPE,
     CONFIG_PVP_TOKEN_ID,
     CONFIG_PVP_TOKEN_COUNT,
-    CONFIG_INTERVAL_LOG_UPDATE,
-    CONFIG_MIN_LOG_UPDATE,
     CONFIG_ENABLE_SINFO_LOGIN,
     CONFIG_PLAYER_ALLOW_COMMANDS,
     CONFIG_NUMTHREADS,
@@ -332,7 +334,7 @@ enum WorldIntConfigs
     CONFIG_CHARDELETE_KEEP_DAYS,
     CONFIG_CHARDELETE_METHOD,
     CONFIG_CHARDELETE_MIN_LEVEL,
-    CONFIG_CHARDELETE_HEROIC_MIN_LEVEL,
+    CONFIG_CHARDELETE_DEATH_KNIGHT_MIN_LEVEL,
     CONFIG_AUTOBROADCAST_CENTER,
     CONFIG_AUTOBROADCAST_INTERVAL,
     CONFIG_MAX_RESULTS_LOOKUP_COMMANDS,
@@ -376,6 +378,15 @@ enum WorldIntConfigs
     CONFIG_AUCTION_GETALL_DELAY,
     CONFIG_AUCTION_SEARCH_DELAY,
     CONFIG_TALENTS_INSPECTING,
+    CONFIG_RESPAWN_MINCHECKINTERVALMS,
+    CONFIG_RESPAWN_DYNAMICMODE,
+    CONFIG_RESPAWN_GUIDWARNLEVEL,
+    CONFIG_RESPAWN_GUIDALERTLEVEL,
+    CONFIG_RESPAWN_RESTARTQUIETTIME,
+    CONFIG_RESPAWN_DYNAMICMINIMUM_CREATURE,
+    CONFIG_RESPAWN_DYNAMICMINIMUM_GAMEOBJECT,
+    CONFIG_RESPAWN_GUIDWARNING_FREQUENCY,
+    CONFIG_SOCKET_TIMEOUTTIME_ACTIVE,
     INT_CONFIG_VALUE_COUNT
 };
 
@@ -517,23 +528,18 @@ enum WorldStates
 };
 
 /// Storage class for commands issued for delayed execution
-struct CliCommandHolder
+struct TC_GAME_API CliCommandHolder
 {
-    typedef void Print(void*, const char*);
-    typedef void CommandFinished(void*, bool success);
+    typedef void(*Print)(void*, char const*);
+    typedef void(*CommandFinished)(void*, bool success);
 
     void* m_callbackArg;
-    char *m_command;
-    Print* m_print;
+    char* m_command;
+    Print m_print;
+    CommandFinished m_commandFinished;
 
-    CommandFinished* m_commandFinished;
-
-    CliCommandHolder(void* callbackArg, const char *command, Print* zprint, CommandFinished* commandFinished)
-        : m_callbackArg(callbackArg), m_command(strdup(command)), m_print(zprint), m_commandFinished(commandFinished)
-    {
-    }
-
-    ~CliCommandHolder() { free(m_command); }
+    CliCommandHolder(void* callbackArg, char const* command, Print zprint, CommandFinished commandFinished);
+    ~CliCommandHolder();
 
 private:
     CliCommandHolder(CliCommandHolder const& right) = delete;
@@ -568,7 +574,7 @@ class TC_GAME_API World
         bool RemoveSession(uint32 id);
         /// Get the number of current active sessions
         void UpdateMaxSessionCounters();
-        const SessionMap& GetAllSessions() const { return m_sessions; }
+        SessionMap const& GetAllSessions() const { return m_sessions; }
         uint32 GetActiveAndQueuedSessionCount() const { return m_sessions.size(); }
         uint32 GetActiveSessionCount() const { return m_sessions.size() - m_QueuedPlayer.size(); }
         uint32 GetQueuedSessionCount() const { return m_QueuedPlayer.size(); }
@@ -616,11 +622,6 @@ class TC_GAME_API World
         /// Allow/Disallow object movements
         void SetAllowMovement(bool allow) { m_allowMovement = allow; }
 
-        /// Set a new Message of the Day
-        void SetMotd(std::string const& motd);
-        /// Get the current Message of the Day
-        const char* GetMotd() const;
-
         /// Set the string for new characters (first login)
         void SetNewCharString(std::string const& str) { m_newCharString = str; }
         /// Get the string for new characters (first login)
@@ -630,16 +631,6 @@ class TC_GAME_API World
 
         /// Get the path where data (dbc, maps) are stored on disk
         std::string const& GetDataPath() const { return m_dataPath; }
-
-        /// When server started?
-        time_t const& GetStartTime() const { return m_startTime; }
-        /// What time is it?
-        time_t const& GetGameTime() const { return m_gameTime; }
-        /// Uptime (in secs)
-        uint32 GetUptime() const { return uint32(m_gameTime - m_startTime); }
-        /// Update time
-        uint32 GetUpdateTime() const { return m_updateTime; }
-        void SetRecordDiffInterval(int32 t) { if (t >= 0) m_int_configs[CONFIG_INTERVAL_LOG_UPDATE] = (uint32)t; }
 
         /// Next daily quests and random bg reset time
         time_t GetNextDailyQuestsResetTime() const { return m_NextDailyQuestReset; }
@@ -657,9 +648,9 @@ class TC_GAME_API World
         void LoadConfigSettings(bool reload = false);
 
         void SendWorldText(uint32 string_id, ...);
-        void SendGlobalText(const char* text, WorldSession* self);
+        void SendGlobalText(char const* text, WorldSession* self);
         void SendGMText(uint32 string_id, ...);
-        void SendServerMessage(ServerMessageType type, const char *text = "", Player* player = NULL);
+        void SendServerMessage(ServerMessageType type, const char *text = "", Player* player = nullptr);
         void SendGlobalMessage(WorldPacket* packet, WorldSession* self = nullptr, uint32 team = 0);
         void SendGlobalGMMessage(WorldPacket* packet, WorldSession* self = nullptr, uint32 team = 0);
         bool SendZoneMessage(uint32 zone, WorldPacket* packet, WorldSession* self = nullptr, uint32 team = 0);
@@ -670,7 +661,7 @@ class TC_GAME_API World
         uint32 GetShutDownTimeLeft() const { return m_ShutdownTimer; }
         void ShutdownServ(uint32 time, uint32 options, uint8 exitcode, const std::string& reason = std::string());
         uint32 ShutdownCancel();
-        void ShutdownMsg(bool show = false, Player* player = NULL, const std::string& reason = std::string());
+        void ShutdownMsg(bool show = false, Player* player = nullptr, const std::string& reason = std::string());
         static uint8 GetExitCode() { return m_ExitCode; }
         static void StopNow(uint8 exitcode) { m_stopEvent = true; m_ExitCode = exitcode; }
         static bool IsStopped() { return m_stopEvent; }
@@ -727,8 +718,8 @@ class TC_GAME_API World
         void LoadWorldStates();
 
         /// Are we on a "Player versus Player" server?
-        bool IsPvPRealm() const { return (getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_PVP || getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_RPPVP || getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_FFA_PVP); }
-        bool IsFFAPvPRealm() const { return getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_FFA_PVP; }
+        bool IsPvPRealm() const;
+        bool IsFFAPvPRealm() const;
 
         void KickAll();
         void KickAllLess(AccountTypes sec);
@@ -760,9 +751,6 @@ class TC_GAME_API World
         void LoadDBVersion();
         char const* GetDBVersion() const { return m_DBVersion.c_str(); }
 
-        void ResetTimeDiffRecord();
-        void RecordTimeDiff(std::string const& text);
-
         void LoadAutobroadcasts();
 
         void UpdateAreaDependentAuras();
@@ -774,9 +762,14 @@ class TC_GAME_API World
         void ReloadRBAC();
 
         void RemoveOldCorpses();
+        void TriggerGuidWarning();
+        void TriggerGuidAlert();
+        bool IsGuidWarning() { return _guidWarn; }
+        bool IsGuidAlert() { return _guidAlert; }
 
     protected:
         void _UpdateGameTime();
+
         // callback for UpdateRealmCharacters
         void _UpdateRealmCharCount(PreparedQueryResult resultCharCount);
 
@@ -803,14 +796,9 @@ class TC_GAME_API World
 
         bool m_isClosed;
 
-        time_t m_startTime;
-        time_t m_gameTime;
         IntervalTimer m_timers[WUPDATE_COUNT];
         time_t mail_timer;
         time_t mail_timer_expires;
-        uint32 m_updateTime, m_updateTimeSum;
-        uint32 m_updateTimeCount;
-        uint32 m_currentTime;
 
         SessionMap m_sessions;
         typedef std::unordered_map<uint32, time_t> DisconnectMap;
@@ -834,7 +822,6 @@ class TC_GAME_API World
         uint32 m_availableDbcLocaleMask;                       // by loaded DBC
         void DetectDBCLang();
         bool m_allowMovement;
-        std::string m_motd;
         std::string m_dataPath;
 
         // for max speed access
@@ -873,7 +860,21 @@ class TC_GAME_API World
         AutobroadcastsWeightMap m_AutobroadcastsWeights;
 
         void ProcessQueryCallbacks();
+
+        void SendGuidWarning();
+        void DoGuidWarningRestart();
+        void DoGuidAlertRestart();
         QueryCallbackProcessor _queryProcessor;
+
+        std::string _guidWarningMsg;
+        std::string _alertRestartReason;
+
+        std::mutex _guidAlertLock;
+
+        bool _guidWarn;
+        bool _guidAlert;
+        uint32 _warnDiff;
+        time_t _warnShutdownTime;
 };
 
 TC_GAME_API extern Realm realm;

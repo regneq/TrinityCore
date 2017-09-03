@@ -18,12 +18,14 @@
 #ifndef BLACK_TEMPLE_H_
 #define BLACK_TEMPLE_H_
 
+#include "CreatureAIImpl.h"
+
 #define BTScriptName "instance_black_temple"
 #define DataHeader   "BT"
 
 uint32 const EncounterCount         = 9;
 
-enum DataTypes
+enum BTDataTypes
 {
     // Encounter States
     DATA_HIGH_WARLORD_NAJENTUS      = 0,
@@ -54,7 +56,9 @@ enum DataTypes
 
     DATA_ESSENCE_OF_SUFFERING       = 20,
     DATA_ESSENCE_OF_DESIRE          = 21,
-    DATA_ESSENCE_OF_ANGER           = 22
+    DATA_ESSENCE_OF_ANGER           = 22,
+
+    DATA_ILLIDAN_MUSIC_CONTROLLER   = 23,
 };
 
 enum TriggerEmotes
@@ -63,7 +67,7 @@ enum TriggerEmotes
     EMOTE_DEN_OF_MORTAL_DOOR_OPEN    = 1
 };
 
-enum CreatureIds
+enum BTCreatureIds
 {
     //Bosses
     NPC_HIGH_WARLORD_NAJENTUS       = 22887,
@@ -107,7 +111,7 @@ enum CreatureIds
     NPC_DEMON_FIRE                  = 23069
 };
 
-enum GameObjectIds
+enum BTGameObjectIds
 {
     GO_NAJENTUS_GATE                = 185483,
     GO_NAJENTUS_SPINE               = 185584,
@@ -123,12 +127,12 @@ enum GameObjectIds
     GO_ILLIDAN_GATE                 = 185905,
     GO_ILLIDAN_DOOR_R               = 186261,
     GO_ILLIDAN_DOOR_L               = 186262,
-    GO_ILLIDAN_CAGE_TRAP            = 185916
+    GO_ILLIDAN_CAGE_TRAP            = 185916,
+    GO_ILLIDAN_MUSIC_CONTROLLER     = 185966
 };
 
 enum BlackTempleMisc
 {
-    ASHTONGUE_FACTION_FRIEND        = 1820,
     AKAMA_FACTION_COMBAT            = 1868,
     AKAMA_INTRO                     = 1,
     AKAMA_FIGHT                     = 2,
@@ -136,10 +140,10 @@ enum BlackTempleMisc
     ACTION_OPEN_DOOR                = 4
 };
 
-template<class AI>
-AI* GetBlackTempleAI(Creature* creature)
+template <class AI, class T>
+inline AI* GetBlackTempleAI(T* obj)
 {
-    return GetInstanceAI<AI>(creature, BTScriptName);
+    return GetInstanceAI<AI>(obj, BTScriptName);
 }
 
 #endif // BLACK_TEMPLE_H_
