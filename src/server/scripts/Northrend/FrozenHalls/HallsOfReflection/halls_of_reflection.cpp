@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,20 +15,24 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptMgr.h"
 #include "halls_of_reflection.h"
+#include "Creature.h"
+#include "EventProcessor.h"
 #include "InstanceScript.h"
 #include "MotionMaster.h"
 #include "MoveSplineInit.h"
 #include "ObjectAccessor.h"
+#include "ObjectGuid.h"
 #include "Player.h"
 #include "ScriptedCreature.h"
 #include "ScriptedGossip.h"
+#include "ScriptMgr.h"
 #include "Spell.h"
 #include "SpellInfo.h"
 #include "SpellScript.h"
 #include "TemporarySummon.h"
 #include "Transport.h"
+#include "Unit.h"
 
 enum Text
 {
@@ -343,12 +347,6 @@ Position const IceWallTargetPosition[] =
     { 5439.976f, 1879.005f, 752.7048f, 1.064651f  }, // 3rd Icewall
     { 5318.289f, 1749.184f, 771.9423f, 0.8726646f }  // 4th Icewall
 };
-
-void GameObjectDeleteDelayEvent::DeleteGameObject()
-{
-    if (GameObject* go = ObjectAccessor::GetGameObject(*_owner, _gameObjectGUID))
-        go->Delete();
-}
 
 class npc_jaina_or_sylvanas_intro_hor : public CreatureScript
 {
@@ -797,6 +795,33 @@ class npc_jaina_or_sylvanas_intro_hor : public CreatureScript
         }
 };
 
+class HoRGameObjectDeleteDelayEvent : public BasicEvent
+{
+    public:
+        explicit HoRGameObjectDeleteDelayEvent(Unit* owner, ObjectGuid gameObjectGUID) : _owner(owner), _gameObjectGUID(gameObjectGUID) { }
+
+        void DeleteGameObject()
+        {
+            if (GameObject* go = ObjectAccessor::GetGameObject(*_owner, _gameObjectGUID))
+                go->Delete();
+        }
+
+        bool Execute(uint64 /*execTime*/, uint32 /*diff*/) override
+        {
+            DeleteGameObject();
+            return true;
+        }
+
+        void Abort(uint64 /*execTime*/) override
+        {
+            DeleteGameObject();
+        }
+
+    private:
+        Unit* _owner;
+        ObjectGuid _gameObjectGUID;
+};
+
 class npc_jaina_or_sylvanas_escape_hor : public CreatureScript
 {
     public:
@@ -894,7 +919,7 @@ class npc_jaina_or_sylvanas_escape_hor : public CreatureScript
                     me->RemoveAurasDueToSpell(SPELL_SYLVANAS_DESTROY_ICE_WALL);
 
                 _instance->HandleGameObject(_instance->GetGuidData(DATA_ICEWALL), true);
-                me->m_Events.AddEvent(new GameObjectDeleteDelayEvent(me, _instance->GetGuidData(DATA_ICEWALL)), me->m_Events.CalculateTime(5000));
+                me->m_Events.AddEvent(new HoRGameObjectDeleteDelayEvent(me, _instance->GetGuidData(DATA_ICEWALL)), me->m_Events.CalculateTime(5000));
 
                 if (Creature* wallTarget = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_ICEWALL_TARGET)))
                     wallTarget->DespawnOrUnsummon();
@@ -1342,7 +1367,7 @@ class npc_the_lich_king_escape_hor : public CreatureScript
                             AttackStart(victim);
                     return me->GetVictim() != nullptr;
                 }
-                else if (me->GetThreatManager().GetThreatListSize() < 2 && me->HasAura(SPELL_REMORSELESS_WINTER))
+                else if (me->GetCombatManager().GetPvECombatRefs().size() < 2 && me->HasAura(SPELL_REMORSELESS_WINTER))
                 {
                     EnterEvadeMode(EVADE_REASON_OTHER);
                     return false;
@@ -1484,7 +1509,7 @@ class npc_ghostly_priest : public CreatureScript
         {
             npc_ghostly_priestAI(Creature* creature) : npc_gauntlet_trash(creature) { }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, urand(6000, 15000));
                 _events.ScheduleEvent(EVENT_CIRCLE_OF_DESTRUCTION, 12000);
@@ -1561,7 +1586,7 @@ class npc_phantom_mage : public CreatureScript
                     npc_gauntlet_trash::EnterEvadeMode(why);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_FIREBALL, 3000);
                 _events.ScheduleEvent(EVENT_FLAMESTRIKE, 6000);
@@ -1632,7 +1657,7 @@ class npc_phantom_hallucination : public CreatureScript
 
             void Reset() override
             {
-                DoZoneInCombat(me, 150.0f);
+                DoZoneInCombat(me);
             }
 
             void EnterEvadeMode(EvadeReason why) override
@@ -1662,7 +1687,7 @@ class npc_shadowy_mercenary : public CreatureScript
         {
             npc_shadowy_mercenaryAI(Creature* creature) : npc_gauntlet_trash(creature) { }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_SHADOW_STEP, 23000);
                 _events.ScheduleEvent(EVENT_DEADLY_POISON, 5000);
@@ -1723,7 +1748,7 @@ class npc_spectral_footman : public CreatureScript
         {
             npc_spectral_footmanAI(Creature* creature) : npc_gauntlet_trash(creature) { }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_SPECTRAL_STRIKE, 14000);
                 _events.ScheduleEvent(EVENT_SHIELD_BASH, 10000);
@@ -1777,7 +1802,7 @@ class npc_tortured_rifleman : public CreatureScript
         {
             npc_tortured_riflemanAI(Creature* creature) : npc_gauntlet_trash(creature) { }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_SHOOT, 1);
                 _events.ScheduleEvent(EVENT_CURSED_ARROW, 7000);
@@ -1877,7 +1902,7 @@ class npc_frostsworn_general : public CreatureScript
                 _instance->SetData(DATA_FROSTSWORN_GENERAL, DONE);
             }
 
-            void EnterCombat(Unit* /*victim*/) override
+            void JustEngagedWith(Unit* /*victim*/) override
             {
                 Talk(SAY_AGGRO);
                 DoZoneInCombat();
@@ -1963,7 +1988,7 @@ class npc_spiritual_reflection : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterCombat(Unit* /*victim*/) override
+            void JustEngagedWith(Unit* /*victim*/) override
             {
                 _events.ScheduleEvent(EVENT_BALEFUL_STRIKE, 3000);
             }
@@ -2123,13 +2148,10 @@ enum EscapeEvents
     EVENT_LUMBERING_ABOMINATION_CLEAVE
 };
 
-namespace hor
-{
-
-class StartMovementEvent : public BasicEvent
+class HoRStartMovementEvent : public BasicEvent
 {
     public:
-        StartMovementEvent(Creature* owner) : _owner(owner) { }
+        explicit HoRStartMovementEvent(Creature* owner) : _owner(owner) { }
 
         bool Execute(uint64 /*execTime*/, uint32 /*diff*/) override
         {
@@ -2142,8 +2164,6 @@ class StartMovementEvent : public BasicEvent
     private:
         Creature* _owner;
 };
-
-} // namespace hor
 
 struct npc_escape_event_trash : public ScriptedAI
 {
@@ -2162,7 +2182,7 @@ struct npc_escape_event_trash : public ScriptedAI
 
     void IsSummonedBy(Unit* /*summoner*/) override
     {
-        DoZoneInCombat(me, 0.0f);
+        DoZoneInCombat(me);
         if (Creature* leader = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_ESCAPE_LEADER)))
         {
             me->SetImmuneToPC(false);
@@ -2197,7 +2217,7 @@ class npc_raging_ghoul : public CreatureScript
                 me->CastSpell(me, SPELL_RAGING_GHOUL_SPAWN, true);
                 me->SetReactState(REACT_PASSIVE);
                 me->HandleEmoteCommand(EMOTE_ONESHOT_EMERGE);
-                me->m_Events.AddEvent(new hor::StartMovementEvent(me), me->m_Events.CalculateTime(5000));
+                me->m_Events.AddEvent(new HoRStartMovementEvent(me), me->m_Events.CalculateTime(5000));
 
                 npc_escape_event_trash::IsSummonedBy(summoner);
             }
@@ -2263,7 +2283,7 @@ class npc_risen_witch_doctor : public CreatureScript
                 me->CastSpell(me, SPELL_RISEN_WITCH_DOCTOR_SPAWN, true);
                 me->SetReactState(REACT_PASSIVE);
                 me->HandleEmoteCommand(EMOTE_ONESHOT_EMERGE);
-                me->m_Events.AddEvent(new hor::StartMovementEvent(me), me->m_Events.CalculateTime(5000));
+                me->m_Events.AddEvent(new HoRStartMovementEvent(me), me->m_Events.CalculateTime(5000));
 
                 npc_escape_event_trash::IsSummonedBy(summoner);
             }
@@ -2599,7 +2619,7 @@ class npc_quel_delar_sword : public CreatureScript
                     me->SetImmuneToAll(false);
             }
 
-            void EnterCombat(Unit* /*victim*/) override
+            void JustEngagedWith(Unit* /*victim*/) override
             {
                 _events.ScheduleEvent(EVENT_QUEL_DELAR_HEROIC_STRIKE, 4000);
                 _events.ScheduleEvent(EVENT_QUEL_DELAR_BLADESTORM, 6000);
@@ -2790,7 +2810,7 @@ class spell_hor_evasion : public SpellScriptLoader
                 if (pos.IsInDist2d(&home, 15.0f))
                     return;
 
-                float angle = pos.GetAngle(&home);
+                float angle = pos.GetAbsoluteAngle(&home);
                 float dist = GetSpellInfo()->Effects[EFFECT_0].CalcRadius(GetCaster());
                 target->MovePosition(pos, dist, angle);
 
@@ -2842,6 +2862,30 @@ class spell_hor_gunship_cannon_fire : public SpellScriptLoader
         }
 };
 
+// 70698 - Quel'Delar's Will
+class spell_hor_quel_delars_will : public SpellScript
+{
+    PrepareSpellScript(spell_hor_quel_delars_will);
+
+    bool Validate(SpellInfo const* spellInfo) override
+    {
+        return ValidateSpellInfo({ spellInfo->Effects[EFFECT_0].TriggerSpell });
+    }
+
+    void HandleReagent(SpellEffIndex effIndex)
+    {
+        PreventHitDefaultEffect(effIndex);
+
+        // dummy spell consumes reagent, don't ignore it
+        GetHitUnit()->CastSpell(GetCaster(), GetSpellInfo()->Effects[effIndex].TriggerSpell, TriggerCastFlags(TRIGGERED_FULL_MASK & ~TRIGGERED_IGNORE_POWER_AND_REAGENT_COST));
+    }
+
+    void Register() override
+    {
+        OnEffectHitTarget += SpellEffectFn(spell_hor_quel_delars_will::HandleReagent, EFFECT_0, SPELL_EFFECT_FORCE_CAST);
+    }
+};
+
 void AddSC_halls_of_reflection()
 {
     new at_hor_intro_start();
@@ -2868,4 +2912,5 @@ void AddSC_halls_of_reflection()
     new spell_hor_start_halls_of_reflection_quest_ae();
     new spell_hor_evasion();
     new spell_hor_gunship_cannon_fire();
+    RegisterSpellScript(spell_hor_quel_delars_will);
 }

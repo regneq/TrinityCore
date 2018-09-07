@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -141,9 +141,9 @@ class boss_ignis : public CreatureScript
                 instance->DoStopTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEVEMENT_IGNIS_START_EVENT);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_AGGRO);
                 events.ScheduleEvent(EVENT_JET, 30000);
                 events.ScheduleEvent(EVENT_SCORCH, 25000);
@@ -495,8 +495,8 @@ class achievement_ignis_shattered : public AchievementCriteriaScript
 
         bool OnCheck(Player* /*source*/, Unit* target) override
         {
-            if (target && target->IsAIEnabled)
-                return target->GetAI()->GetData(DATA_SHATTERED) != 0;
+            if (UnitAI* ai = target ? target->GetAI() : nullptr)
+                return ai->GetData(DATA_SHATTERED) != 0;
 
             return false;
         }

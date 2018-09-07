@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -58,16 +58,15 @@ enum Events
 class BlackheartCharmedPlayerAI : public SimpleCharmedPlayerAI
 {
     using SimpleCharmedPlayerAI::SimpleCharmedPlayerAI;
-    void OnCharmed(bool apply) override
+    void OnCharmed(bool isNew) override
     {
-        SimpleCharmedPlayerAI::OnCharmed(apply);
-        if (!me->GetMap()->IsDungeon())
-            return;
-        if (Creature* blackheart = ObjectAccessor::GetCreature(*me, me->GetInstanceScript()->GetGuidData(DATA_BLACKHEART_THE_INCITER)))
-        {
-            blackheart->AI()->SetData(0, apply);
-            blackheart->GetThreatManager().AddThreat(me, 0.0f);
-        }
+        if (me->GetMap()->IsDungeon())
+            if (Creature* blackheart = ObjectAccessor::GetCreature(*me, me->GetInstanceScript()->GetGuidData(DATA_BLACKHEART_THE_INCITER)))
+            {
+                blackheart->AI()->SetData(0, me->IsCharmed());
+                blackheart->GetThreatManager().AddThreat(me, 0.0f);
+            }
+        SimpleCharmedPlayerAI::OnCharmed(isNew);
     }
 };
 
@@ -81,9 +80,9 @@ struct boss_blackheart_the_inciter : public BossAI
         _Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
-        _EnterCombat();
+        _JustEngagedWith();
         events.ScheduleEvent(EVENT_INCITE_CHAOS, 20000);
         events.ScheduleEvent(EVENT_CHARGE_ATTACK, 5000);
         events.ScheduleEvent(EVENT_WAR_STOMP, 15000);

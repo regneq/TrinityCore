@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -46,6 +46,7 @@ struct ItemSetEffect;
 struct ItemTemplate;
 struct Loot;
 struct Mail;
+struct ScalingStatDistributionEntry;
 struct ScalingStatValuesEntry;
 struct TrainerSpell;
 struct VendorItem;
@@ -885,7 +886,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         explicit Player(WorldSession* session);
         ~Player();
 
-        PlayerAI* AI() const { return reinterpret_cast<PlayerAI*>(i_AI); }
+        PlayerAI* AI() const { return reinterpret_cast<PlayerAI*>(GetAI()); }
 
         void CleanupsBeforeDelete(bool finalCleanup = true) override;
 
@@ -908,7 +909,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
 
         static bool BuildEnumData(PreparedQueryResult result, WorldPacket* data);
 
-        bool IsImmunedToSpellEffect(SpellInfo const* spellInfo, uint32 index, Unit* caster) const override;
+        bool IsImmunedToSpellEffect(SpellInfo const* spellInfo, uint32 index, WorldObject const* caster) const override;
 
         void SetInWater(bool apply);
 
@@ -944,10 +945,11 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void InitTaxiNodesForLevel() { m_taxi.InitTaxiNodesForLevel(getRace(), getClass(), getLevel()); }
         bool ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc = nullptr, uint32 spellid = 0);
         bool ActivateTaxiPathTo(uint32 taxi_path_id, uint32 spellid = 0);
+        void FinishTaxiFlight();
         void CleanupAfterTaxiFlight();
         void ContinueTaxiFlight() const;
         void SendTaxiNodeStatusMultiple();
-                                                            // mount_id can be used in scripting calls
+
         bool isAcceptWhispers() const { return (m_ExtraFlags & PLAYER_EXTRA_ACCEPT_WHISPERS) != 0; }
         void SetAcceptWhispers(bool on) { if (on) m_ExtraFlags |= PLAYER_EXTRA_ACCEPT_WHISPERS; else m_ExtraFlags &= ~PLAYER_EXTRA_ACCEPT_WHISPERS; }
         bool IsGameMaster() const { return (m_ExtraFlags & PLAYER_EXTRA_GM_ON) != 0; }
@@ -1121,11 +1123,12 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         bool IsUseEquipedWeapon(bool mainhand) const;
         bool IsTwoHandUsed() const;
         bool IsUsingTwoHandedWeaponInOneHand() const;
-        void SendNewItem(Item* item, uint32 count, bool received, bool created, bool broadcast = false);
+        void SendNewItem(Item* item, uint32 count, bool received, bool created, bool broadcast = false, bool sendChatMessage = true);
         bool BuyItemFromVendorSlot(ObjectGuid vendorguid, uint32 vendorslot, uint32 item, uint8 count, uint8 bag, uint8 slot);
         bool _StoreOrEquipNewItem(uint32 vendorslot, uint32 item, uint8 count, uint8 bag, uint8 slot, int32 price, ItemTemplate const* pProto, Creature* pVendor, VendorItem const* crItem, bool bStore);
 
         float GetReputationPriceDiscount(Creature const* creature) const;
+        float GetReputationPriceDiscount(FactionTemplateEntry const* factionTemplate) const;
 
         Player* GetTrader() const;
         TradeData* GetTradeData() const { return m_trade; }
@@ -1251,7 +1254,8 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void ItemRemovedQuestCheck(uint32 entry, uint32 count);
         void KilledMonster(CreatureTemplate const* cInfo, ObjectGuid guid);
         void KilledMonsterCredit(uint32 entry, ObjectGuid guid = ObjectGuid::Empty);
-        void KilledPlayerCredit();
+        void KilledPlayerCredit(uint16 count = 1);
+        void KilledPlayerCreditForQuest(uint16 count, Quest const* quest);
         void KillCreditGO(uint32 entry, ObjectGuid guid = ObjectGuid::Empty);
         void TalkedToCreature(uint32 entry, ObjectGuid guid);
         void MoneyChanged(uint32 value);
@@ -1453,7 +1457,6 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         template <class T>
         void ApplySpellMod(uint32 spellId, SpellModOp op, T& basevalue, Spell* spell = nullptr) const;
         static void ApplyModToSpell(SpellModifier* mod, Spell* spell);
-        static bool HasSpellModApplied(SpellModifier* mod, Spell* spell);
         void SetSpellModTakingSpell(Spell* spell, bool apply);
 
         void RemoveArenaSpellCooldowns(bool removeActivePetCooldowns = false);
@@ -1461,7 +1464,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void SetLastPotionId(uint32 item_id) { m_lastPotionId = item_id; }
         void UpdatePotionCooldown(Spell* spell = nullptr);
 
-        void SetResurrectRequestData(Unit* caster, uint32 health, uint32 mana, uint32 appliedAura);
+        void SetResurrectRequestData(WorldObject const* caster, uint32 health, uint32 mana, uint32 appliedAura);
 
         void ClearResurrectRequestData()
         {
@@ -1578,7 +1581,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void UpdateRating(CombatRating cr);
         void UpdateAllRatings();
 
-        void CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage) const override;
+        void CalculateMinMaxDamage(WeaponAttackType attType, bool normalized, bool addTotalPct, float& minDamage, float& maxDamage, uint8 damageIndex) const override;
 
         void UpdateDefenseBonusesMod();
         void RecalculateRating(CombatRating cr) { ApplyRatingMod(cr, 0, true);}
@@ -1592,6 +1595,8 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         float GetRatingBonusValue(CombatRating cr) const;
         uint32 GetBaseSpellPowerBonus() const { return m_baseSpellPower; }
         int32 GetSpellPenetrationItemMod() const { return m_spellPenetrationItemMod; }
+
+        bool CanApplyResilience() const override { return true; }
 
         float GetExpertiseDodgeOrParryReduction(WeaponAttackType attType) const;
         void UpdateBlockPercentage();
@@ -1646,6 +1651,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         bool UpdatePosition(float x, float y, float z, float orientation, bool teleport = false) override;
         bool UpdatePosition(Position const& pos, bool teleport = false) override { return UpdatePosition(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(), teleport); }
         void ProcessTerrainStatusUpdate(ZLiquidStatus status, Optional<LiquidData> const& liquidData) override;
+        void AtExitCombat() override;
 
         void SendMessageToSet(WorldPacket const* data, bool self) override { SendMessageToSetInRange(data, GetVisibilityRange(), self); }
         void SendMessageToSetInRange(WorldPacket const* data, float dist, bool self) override;
@@ -1806,6 +1812,8 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
 
         void ResetAllPowers();
 
+        SpellSchoolMask GetMeleeDamageSchoolMask(WeaponAttackType attackType = BASE_ATTACK, uint8 damageIndex = 0) const override;
+
         void CastAllObtainSpells();
         void ApplyItemObtainSpells(Item* item, bool apply);
 
@@ -1821,8 +1829,10 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void _RemoveAllItemMods();
         void _ApplyAllItemMods();
         void _ApplyAllLevelScaleItemMods(bool apply);
+        ScalingStatDistributionEntry const* GetScalingStatDistributionFor(ItemTemplate const& itemTemplate) const;
+        ScalingStatValuesEntry const* GetScalingStatValuesFor(ItemTemplate const& itemTemplate) const;
         void _ApplyItemBonuses(ItemTemplate const* proto, uint8 slot, bool apply, bool only_level_scale = false);
-        void _ApplyWeaponDamage(uint8 slot, ItemTemplate const* proto, ScalingStatValuesEntry const* ssv, bool apply);
+        void _ApplyWeaponDamage(uint8 slot, ItemTemplate const* proto, bool apply);
         void _ApplyAmmoBonuses();
         bool EnchantmentFitsRequirements(uint32 enchantmentcondition, int8 slot) const;
         void ToggleMetaGemsActive(uint8 exceptslot, bool apply);
@@ -1867,7 +1877,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         BattlegroundTypeId GetBattlegroundTypeId() const { return m_bgData.bgTypeID; }
         Battleground* GetBattleground() const;
 
-        bool InBattlegroundQueue() const;
+        bool InBattlegroundQueue(bool ignoreArena = false) const;
 
         BattlegroundQueueTypeId GetBattlegroundQueueTypeId(uint32 index) const;
         uint32 GetBattlegroundQueueIndex(BattlegroundQueueTypeId bgQueueTypeId) const;
@@ -2098,7 +2108,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         bool HasAchieved(uint32 achievementId) const;
         void ResetAchievements();
         void ResetAchievementCriteria(AchievementCriteriaCondition condition, uint32 value, bool evenIfCriteriaComplete = false);
-        void UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 miscValue1 = 0, uint32 miscValue2 = 0, Unit* unit = nullptr);
+        void UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 miscValue1 = 0, uint32 miscValue2 = 0, WorldObject* ref = nullptr);
         void StartTimedAchievement(AchievementCriteriaTimedTypes type, uint32 entry, uint32 timeLost = 0);
         void RemoveTimedAchievement(AchievementCriteriaTimedTypes type, uint32 entry);
         void CompletedAchievement(AchievementEntry const* entry);
@@ -2130,9 +2140,6 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
 
         bool CanFly() const override { return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_CAN_FLY); }
 
-        //! Return collision height sent to client
-        float GetCollisionHeight(bool mounted) const;
-
         std::string GetMapAreaAndZoneString() const;
         std::string GetCoordsMapAreaAndZoneString() const;
 
@@ -2140,6 +2147,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         // Gamemaster whisper whitelist
         GuidList WhisperList;
         uint32 m_regenTimerCount;
+        uint32 m_foodEmoteTimerCount;
         float m_powerFraction[MAX_POWERS];
         uint32 m_contestedPvPTimer;
 

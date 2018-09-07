@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -357,7 +357,6 @@ public:
                 guid.Clear();
 
             _killSpamFilter = false;
-            _canAttack = false;
             _executingVortex = false;
             _arcaneReinforcements = true;
             _flyingOutOfPlatform = false;
@@ -436,9 +435,9 @@ public:
             return ObjectGuid::Empty;
         }
 
-        void SetGUID(ObjectGuid guid, int32 type) override
+        void SetGUID(ObjectGuid const& guid, int32 id) override
         {
-            switch (type)
+            switch (id)
             {
                 case DATA_LAST_OVERLOAD_GUID:
                     _arcaneOverloadGUID = guid;
@@ -446,7 +445,7 @@ public:
                 case DATA_FIRST_SURGE_TARGET_GUID:
                 case DATA_FIRST_SURGE_TARGET_GUID + 1:
                 case DATA_FIRST_SURGE_TARGET_GUID + 2:
-                    _surgeTargetGUID[type - DATA_FIRST_SURGE_TARGET_GUID] = guid;
+                    _surgeTargetGUID[id - DATA_FIRST_SURGE_TARGET_GUID] = guid;
                     break;
                 case DATA_LAST_TARGET_BARRAGE_GUID:
                     _lastHitByArcaneBarrageGUID = guid;
@@ -464,11 +463,10 @@ public:
                     {
                         Position pos;
                         pos.m_positionZ = alexstraszaBunny->GetPositionZ();
-                        alexstraszaBunny->GetNearPoint2D(pos.m_positionX, pos.m_positionY, 30.0f, alexstraszaBunny->GetAngle(me));
+                        alexstraszaBunny->GetNearPoint2D(nullptr, pos.m_positionX, pos.m_positionY, 30.0f, alexstraszaBunny->GetAbsoluteAngle(me));
                         me->GetMotionMaster()->MoveLand(POINT_LAND_P_ONE, pos);
                         me->SetImmuneToAll(false);
-                        me->SetReactState(REACT_AGGRESSIVE);
-                        me->SetInCombatWithZone();
+                        DoZoneInCombat();
                         events.ScheduleEvent(EVENT_LAND_START_ENCOUNTER, 7*IN_MILLISECONDS, 1, PHASE_NOT_STARTED);
                     }
                     break;
@@ -502,7 +500,7 @@ public:
                     DummyEntryCheckPredicate pred;
                     summons.DoAction(ACTION_DELAYED_DESPAWN, pred);
                     Talk(SAY_END_P_TWO);
-                    me->GetMotionMaster()->Clear(false);
+                    me->GetMotionMaster()->Clear();
                     me->StopMoving();
                     if (me->GetPositionZ() > 300.0f)
                         events.ScheduleEvent(EVENT_DELAY_MOVE_TO_DESTROY_P, 5*IN_MILLISECONDS, 0, PHASE_TWO);
@@ -562,14 +560,7 @@ public:
             }
         }
 
-        // There are moments where boss will do nothing while being attacked
-        void AttackStart(Unit* target) override
-        {
-            if (_canAttack)
-               BossAI::AttackStart(target);
-        }
-
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             // We can't call full function here since it includes DoZoneInCombat(),
             // if someone does it will be returned with a warning.
@@ -590,30 +581,10 @@ public:
         void EnterEvadeMode(EvadeReason /*why*/) override
         {
             instance->SetBossState(DATA_MALYGOS_EVENT, FAIL);
+            instance->SetBossState(DATA_MALYGOS_EVENT, NOT_STARTED);
 
             me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_GET_DEFAULT_FOR_MAP, 1*IN_MILLISECONDS);
 
-            if (_phase == PHASE_THREE)
-                me->SetControlled(false, UNIT_STATE_ROOT);
-
-            uint32 corpseDelay = me->GetCorpseDelay();
-            uint32 respawnDelay = me->GetRespawnDelay();
-            me->SetCorpseDelay(1);
-            me->SetRespawnDelay(29);
-            me->DespawnOrUnsummon();
-            me->SetCorpseDelay(corpseDelay);
-            me->SetRespawnDelay(respawnDelay);
-
-            // Set speed to normal value
-            me->SetSpeedRate(MOVE_FLIGHT, _flySpeed);
-            me->RemoveAllAuras();
-            me->CombatStop(); // Sometimes threat can remain, so it's a safety measure
-
-            if (!_despawned)
-                _despawned = true;
-
-            me->ResetLootMode();
-            events.Reset();
             if (!summons.empty())
             {
                 if (_phase == PHASE_TWO)
@@ -627,7 +598,7 @@ public:
                     summons.DespawnAll();
             }
 
-            instance->SetBossState(DATA_MALYGOS_EVENT, NOT_STARTED);
+            me->DespawnOrUnsummon(0, 30s);
         }
 
         void KilledUnit(Unit* victim) override
@@ -707,7 +678,7 @@ public:
                 case POINT_LAND_AFTER_VORTEX_P_ONE:
                     me->SetDisableGravity(false);
                     _executingVortex = false;
-                    _canAttack = true;
+                    me->SetReactState(REACT_AGGRESSIVE);
                     break;
                 case POINT_LIFT_IN_AIR_P_ONE:
                     me->SetDisableGravity(true);
@@ -753,9 +724,15 @@ public:
             }
         }
 
+        void DamageTaken(Unit* /*cause*/, uint32& damage) override
+        {
+            if (damage > me->GetHealth() && _phase != PHASE_THREE)
+                damage = me->GetHealth() - 1;
+        }
+
         void UpdateAI(uint32 diff) override
         {
-            if (!instance || (!UpdateVictim() && _phase != PHASE_NOT_STARTED && _phase != PHASE_TWO))
+            if (!UpdateVictim() && _phase != PHASE_NOT_STARTED && _phase != PHASE_TWO)
                 return;
 
             events.Update(diff);
@@ -768,7 +745,7 @@ public:
             if (_phase == PHASE_ONE && me->GetHealthPct() <= 50.0f)
             {
                 SetPhase(PHASE_TWO, true);
-                _canAttack = false;
+                me->SetReactState(REACT_PASSIVE);
                 me->AttackStop();
                 Talk(SAY_END_P_ONE);
             }
@@ -778,13 +755,11 @@ public:
                 switch (eventId)
                 {
                     case EVENT_START_FIRST_RANDOM_PORTAL:
-                        me->CastCustomSpell(SPELL_RANDOM_PORTAL, SPELLVALUE_MAX_TARGETS, 1);
+                    case EVENT_RANDOM_PORTAL:
+                        DoCastAOE(SPELL_RANDOM_PORTAL, { SPELLVALUE_MAX_TARGETS,1 });
                         break;
                     case EVENT_STOP_PORTAL_BEAM:
                         me->InterruptNonMeleeSpells(true);
-                        break;
-                    case EVENT_RANDOM_PORTAL:
-                        me->CastCustomSpell(SPELL_RANDOM_PORTAL, SPELLVALUE_MAX_TARGETS, 1);
                         break;
                     case EVENT_LAND_START_ENCOUNTER:
                         if (GameObject* iris = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(DATA_FOCUSING_IRIS_GUID)))
@@ -792,7 +767,7 @@ public:
                             me->SetFacingToObject(iris);
                             iris->Delete(); // this is not the best way.
                         }
-                        _canAttack = true;
+                        me->SetReactState(REACT_AGGRESSIVE);
                         SetPhase(PHASE_ONE, true);
                         break;
                     case EVENT_SAY_INTRO:
@@ -805,7 +780,7 @@ public:
                         events.ScheduleEvent(EVENT_VORTEX, urand(60, 80)*IN_MILLISECONDS, 0, PHASE_ONE);
                         break;
                     case EVENT_MOVE_TO_VORTEX_POINT:
-                        _canAttack = false;
+                        me->SetReactState(REACT_PASSIVE);
                         me->AttackStop();
                         me->GetMotionMaster()->MovePoint(POINT_VORTEX_P_ONE, MalygosPositions[1]);
                         break;
@@ -849,7 +824,7 @@ public:
                                 Position randomPosOnRadius;
                                 // Hardcodded retail value, reason is Z getters can fail... (TO DO: Change to getter when height calculation works on 100%!)
                                 randomPosOnRadius.m_positionZ = 283.0521f;
-                                alexstraszaBunny->GetNearPoint2D(randomPosOnRadius.m_positionX, randomPosOnRadius.m_positionY, 120.0f, alexstraszaBunny->GetAngle(me));
+                                alexstraszaBunny->GetNearPoint2D(nullptr, randomPosOnRadius.m_positionX, randomPosOnRadius.m_positionY, 120.0f, alexstraszaBunny->GetAbsoluteAngle(me));
                                 me->GetMotionMaster()->MovePoint(POINT_FLY_OUT_OF_PLATFORM_P_TWO, randomPosOnRadius);
                                 _flyingOutOfPlatform = true;
                             }
@@ -861,7 +836,7 @@ public:
                             {
                                 Creature* casterDiskSummon = me->SummonCreature(NPC_HOVER_DISK_CASTER, RangeHoverDisksSpawnPositions[rangeDisks]);
 
-                                if (casterDiskSummon->IsAIEnabled)
+                                if (casterDiskSummon->IsAIEnabled())
                                     casterDiskSummon->AI()->DoAction(rangeDisks);
                             }
 
@@ -882,7 +857,7 @@ public:
                         {
                             Creature* casterDiskSummon = me->SummonCreature(NPC_HOVER_DISK_CASTER, RangeHoverDisksSpawnPositions[rangeDisks]);
 
-                            if (casterDiskSummon->IsAIEnabled)
+                            if (casterDiskSummon->IsAIEnabled())
                                 casterDiskSummon->AI()->DoAction(rangeDisks);
                         }
 
@@ -947,9 +922,9 @@ public:
                         me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_OBSCURE_ARCANE_RUNES, 1 * IN_MILLISECONDS);
                         DoCast(me, SPELL_CLEAR_ALL_DEBUFFS);
                         DoCast(me, SPELL_IMMUNE_CURSES);
-                        _canAttack = true;
-                        UpdateVictim();
                         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                        me->SetReactState(REACT_AGGRESSIVE);
+                        DoZoneInCombat();
                         SetPhase(PHASE_THREE, true);
                         break;
                     case EVENT_SURGE_OF_POWER_P_THREE:
@@ -1019,7 +994,6 @@ public:
         ObjectGuid _surgeTargetGUID[3]; // All these three are used to keep current tagets to which warning should be sent.
 
         bool _killSpamFilter; // Prevent text spamming on killed player by helping implement a CD.
-        bool _canAttack; // Used to control attacking (Move Chase not being applied after Stop Attack, only few times should act like this).
         bool _despawned; // Checks if boss pass through evade on reset.
         bool _executingVortex; // Prevents some events being sheduled during Vortex takeoff/land.
         bool _arcaneReinforcements; // Checks if 10 or 25 man arcane trash will be spawned.
@@ -1183,12 +1157,12 @@ public:
                 if (unit->GetTypeId() == TYPEID_UNIT)
                 {
                     unit->CastSpell(unit, SPELL_TELEPORT_VISUAL_ONLY);
-                    unit->ToCreature()->SetInCombatWithZone();
+                    DoZoneInCombat(unit->ToCreature());
                 }
                 else if (unit->GetTypeId() == TYPEID_PLAYER)
                     me->SetDisableGravity(true);
             }
-            else if (!apply)
+            else
             {
                 if (unit->GetTypeId() != TYPEID_PLAYER)
                 {
@@ -1291,7 +1265,7 @@ public:
                 if (unit->GetTypeId() == TYPEID_UNIT)
                     unit->CastSpell(unit, SPELL_TELEPORT_VISUAL_ONLY);
             }
-            else if (!apply)
+            else
             {
                 me->StopMoving();
                 me->SetDisableGravity(false);
@@ -1420,7 +1394,7 @@ class npc_scion_of_eternity : public CreatureScript
                 _events.ScheduleEvent(EVENT_ARCANE_BARRAGE, urand(14, 29)*IN_MILLISECONDS);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
             }
 
@@ -1675,7 +1649,7 @@ class spell_malygos_random_portal : public SpellScriptLoader
                 {
                     Position pos;
                     pos.m_positionZ = target->GetPositionZ();
-                    target->GetNearPoint2D(pos.m_positionX, pos.m_positionY, frand(29.1f, 30.0f), target->GetAngle(malygos));
+                    target->GetNearPoint2D(nullptr, pos.m_positionX, pos.m_positionY, frand(29.1f, 30.0f), target->GetAbsoluteAngle(malygos));
                     malygos->GetMotionMaster()->MovePoint(POINT_NEAR_RANDOM_PORTAL_P_NONE, pos);
                 }
             }
@@ -2026,7 +2000,7 @@ class spell_scion_of_eternity_arcane_barrage : public SpellScriptLoader
             void TriggerDamageSpellFromPlayer()
             {
                 if (Player* hitTarget = GetHitPlayer())
-                    hitTarget->CastSpell(hitTarget, SPELL_ARCANE_BARRAGE_DAMAGE, true, nullptr, nullptr, GetCaster()->GetGUID());
+                    hitTarget->CastSpell(hitTarget, SPELL_ARCANE_BARRAGE_DAMAGE, GetCaster()->GetGUID());
             }
 
             void Register() override

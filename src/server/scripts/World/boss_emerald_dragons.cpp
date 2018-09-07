@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -200,13 +200,13 @@ class npc_dream_fog : public CreatureScript
                     if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
                     {
                         _roamTimer = urand(15000, 30000);
-                        me->GetMotionMaster()->Clear(false);
+                        me->GetMotionMaster()->Clear();
                         me->GetMotionMaster()->MoveChase(target, 0.2f);
                     }
                     else
                     {
                         _roamTimer = 2500;
-                        me->GetMotionMaster()->Clear(false);
+                        me->GetMotionMaster()->Clear();
                         me->GetMotionMaster()->MoveRandom(25.0f);
                     }
                     // Seeping fog movement is slow enough for a player to be able to walk backwards and still outpace it
@@ -274,10 +274,10 @@ class boss_ysondre : public CreatureScript
                 events.ScheduleEvent(EVENT_LIGHTNING_WAVE, 12000);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 Talk(SAY_YSONDRE_AGGRO);
-                WorldBossAI::EnterCombat(who);
+                WorldBossAI::JustEngagedWith(who);
             }
 
             // Summon druid spirits on 75%, 50% and 25% health
@@ -368,10 +368,10 @@ class boss_lethon : public CreatureScript
                 events.ScheduleEvent(EVENT_SHADOW_BOLT_WHIRL, 10000);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 Talk(SAY_LETHON_AGGRO);
-                WorldBossAI::EnterCombat(who);
+                WorldBossAI::JustEngagedWith(who);
             }
 
             void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/) override
@@ -503,10 +503,10 @@ class boss_emeriss : public CreatureScript
                 emerald_dragonAI::KilledUnit(who);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 Talk(SAY_EMERISS_AGGRO);
-                WorldBossAI::EnterCombat(who);
+                WorldBossAI::JustEngagedWith(who);
             }
 
             void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/) override
@@ -601,10 +601,10 @@ class boss_taerar : public CreatureScript
                 events.ScheduleEvent(EVENT_BELLOWING_ROAR, 30000);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 Talk(SAY_TAERAR_AGGRO);
-                emerald_dragonAI::EnterCombat(who);
+                emerald_dragonAI::JustEngagedWith(who);
             }
 
             void SummonedCreatureDies(Creature* /*summon*/, Unit* /*killer*/) override

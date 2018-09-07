@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -25,13 +25,14 @@ EndScriptData */
 #include "AccountMgr.h"
 #include "Chat.h"
 #include "DatabaseEnv.h"
+#include "IpAddress.h"
+#include "IPLocation.h"
 #include "Language.h"
 #include "Log.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "World.h"
 #include "WorldSession.h"
-#include <boost/asio/ip/address_v4.hpp>
 
 class account_commandscript : public CommandScript
 {
@@ -290,30 +291,23 @@ public:
         {
             if (param == "on")
             {
-                PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_LOGON_COUNTRY);
-                uint32 ip = boost::asio::ip::address_v4::from_string(handler->GetSession()->GetRemoteAddress()).to_ulong();
-                EndianConvertReverse(ip);
-                stmt->setUInt32(0, ip);
-                PreparedQueryResult result = LoginDatabase.Query(stmt);
-                if (result)
+                if (IpLocationRecord const* location = sIPLocation->GetLocationRecord(handler->GetSession()->GetRemoteAddress()))
                 {
-                    Field* fields = result->Fetch();
-                    std::string country = fields[0].GetString();
-                    stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_LOCK_CONTRY);
-                    stmt->setString(0, country);
+                    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_LOCK_COUNTRY);
+                    stmt->setString(0, location->CountryCode);
                     stmt->setUInt32(1, handler->GetSession()->GetAccountId());
                     LoginDatabase.Execute(stmt);
                     handler->PSendSysMessage(LANG_COMMAND_ACCLOCKLOCKED);
                 }
                 else
                 {
-                    handler->PSendSysMessage("[IP2NATION] Table empty");
-                    TC_LOG_DEBUG("server.authserver", "[IP2NATION] Table empty");
+                    handler->PSendSysMessage("IP2Location] No information");
+                    TC_LOG_DEBUG("server.authserver", "IP2Location] No information");
                 }
             }
             else if (param == "off")
             {
-                PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_LOCK_CONTRY);
+                PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_LOCK_COUNTRY);
                 stmt->setString(0, "00");
                 stmt->setUInt32(1, handler->GetSession()->GetAccountId());
                 LoginDatabase.Execute(stmt);

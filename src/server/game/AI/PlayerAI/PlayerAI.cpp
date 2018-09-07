@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -690,7 +690,7 @@ void PlayerAI::DoCastAtTarget(TargetedSpell spell)
 {
     SpellCastTargets targets;
     targets.SetUnitTarget(spell.second);
-    spell.first->prepare(&targets);
+    spell.first->prepare(targets);
 }
 
 void PlayerAI::DoRangedAttackIfReady()
@@ -729,7 +729,21 @@ void PlayerAI::DoRangedAttackIfReady()
     if (!rangedAttackSpell)
         return;
 
-    me->CastSpell(victim, rangedAttackSpell, TRIGGERED_CAST_DIRECTLY);
+    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(rangedAttackSpell);
+    if (!spellInfo)
+        return;
+
+    Spell* spell = new Spell(me, spellInfo, TRIGGERED_CAST_DIRECTLY);
+    if (spell->CheckPetCast(victim) != SPELL_CAST_OK)
+    {
+        delete spell;
+        return;
+    }
+
+    SpellCastTargets targets;
+    targets.SetUnitTarget(victim);
+    spell->prepare(targets);
+
     me->resetAttackTimer(RANGED_ATTACK);
 }
 
@@ -792,7 +806,11 @@ bool SimpleCharmedPlayerAI::CanAIAttack(Unit const* who) const
 Unit* SimpleCharmedPlayerAI::SelectAttackTarget() const
 {
     if (Unit* charmer = me->GetCharmer())
-        return charmer->IsAIEnabled ? charmer->GetAI()->SelectTarget(SELECT_TARGET_RANDOM, 0, ValidTargetSelectPredicate(this)) : charmer->GetVictim();
+    {
+        if (UnitAI* charmerAI = charmer->GetAI())
+            return charmerAI->SelectTarget(SELECT_TARGET_RANDOM, 0, ValidTargetSelectPredicate(this));
+        return charmer->GetVictim();
+    }
     return nullptr;
 }
 
@@ -905,7 +923,7 @@ PlayerAI::TargetedSpell SimpleCharmedPlayerAI::SelectAppropriateCastForSpec()
             VerifyAndPushSpellCast(spells, SPELL_FREEZING_ARROW, TARGET_VICTIM, 2);
             VerifyAndPushSpellCast(spells, SPELL_RAPID_FIRE, TARGET_NONE, 10);
             VerifyAndPushSpellCast(spells, SPELL_KILL_SHOT, TARGET_VICTIM, 10);
-            if (me->GetVictim() && me->GetVictim()->getPowerType() == POWER_MANA && !me->GetVictim()->GetAuraApplicationOfRankedSpell(SPELL_VIPER_STING, me->GetGUID()))
+            if (me->GetVictim() && me->GetVictim()->GetPowerType() == POWER_MANA && !me->GetVictim()->GetAuraApplicationOfRankedSpell(SPELL_VIPER_STING, me->GetGUID()))
                 VerifyAndPushSpellCast(spells, SPELL_VIPER_STING, TARGET_VICTIM, 5);
 
             switch (GetSpec())
@@ -1361,7 +1379,7 @@ void SimpleCharmedPlayerAI::UpdateAI(const uint32 diff)
 
         if (me->IsStopped() && !me->HasUnitState(UNIT_STATE_CANNOT_TURN))
         {
-            float targetAngle = me->GetAngle(target);
+            float targetAngle = me->GetAbsoluteAngle(target);
             if (_forceFacing || fabs(me->GetOrientation() - targetAngle) > 0.4f)
             {
                 me->SetFacingTo(targetAngle);
@@ -1408,9 +1426,9 @@ void SimpleCharmedPlayerAI::UpdateAI(const uint32 diff)
     }
 }
 
-void SimpleCharmedPlayerAI::OnCharmed(bool apply)
+void SimpleCharmedPlayerAI::OnCharmed(bool isNew)
 {
-    if (apply)
+    if (me->IsCharmed())
     {
         me->CastStop();
         me->AttackStop();
@@ -1426,4 +1444,5 @@ void SimpleCharmedPlayerAI::OnCharmed(bool apply)
         me->GetMotionMaster()->Clear();
         me->StopMoving();
     }
+    PlayerAI::OnCharmed(isNew);
 }

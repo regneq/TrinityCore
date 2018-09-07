@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,6 +39,11 @@ enum Events
     EVENT_AVATAROFFLAME                                    = 2
 };
 
+enum Emotes
+{
+    EMOTE_SHAKEN                                           = 0
+};
+
 class boss_emperor_dagran_thaurissan : public CreatureScript
 {
     public:
@@ -56,7 +61,7 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
                 me->CallForHelp(VISIBLE_RANGE);
@@ -76,6 +81,7 @@ class boss_emperor_dagran_thaurissan : public CreatureScript
                 {
                     moira->AI()->EnterEvadeMode();
                     moira->SetFaction(FACTION_FRIENDLY);
+                    moira->AI()->Talk(EMOTE_SHAKEN);
                 }
             }
 

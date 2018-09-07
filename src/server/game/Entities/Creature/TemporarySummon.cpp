@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -206,9 +206,9 @@ void TempSummon::InitSummon()
     Unit* owner = GetSummoner();
     if (owner)
     {
-        if (owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled)
+        if (owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled())
             owner->ToCreature()->AI()->JustSummoned(this);
-        if (IsAIEnabled)
+        if (IsAIEnabled())
             AI()->IsSummonedBy(owner);
     }
 }
@@ -242,7 +242,7 @@ void TempSummon::UnSummon(uint32 msTime)
     }
 
     Unit* owner = GetSummoner();
-    if (owner && owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled)
+    if (owner && owner->GetTypeId() == TYPEID_UNIT && owner->ToCreature()->IsAIEnabled())
         owner->ToCreature()->AI()->SummonedCreatureDespawn(this);
 
     AddObjectToRemoveList();
@@ -335,7 +335,7 @@ void Guardian::InitSummon()
 
     if (GetOwner()->GetTypeId() == TYPEID_PLAYER
             && GetOwner()->GetMinionGUID() == GetGUID()
-            && !GetOwner()->GetCharmGUID())
+            && !GetOwner()->GetCharmedGUID())
     {
         GetOwner()->ToPlayer()->CharmSpellInitialize();
     }

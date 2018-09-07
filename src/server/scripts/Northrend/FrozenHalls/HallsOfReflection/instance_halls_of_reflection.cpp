@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -592,7 +592,7 @@ class instance_halls_of_reflection : public InstanceMapScript
                                     temp->CastSpell(temp, SPELL_SPIRIT_ACTIVATE, false);
                                     temp->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                                     temp->SetImmuneToAll(false);
-                                    temp->AI()->DoZoneInCombat(temp, 100.00f);
+                                    temp->AI()->DoZoneInCombat(temp);
                                 }
                             }
                         }

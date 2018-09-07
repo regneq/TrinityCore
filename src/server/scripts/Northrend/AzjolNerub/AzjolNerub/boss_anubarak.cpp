@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -130,9 +130,9 @@ public:
 
         bool CanAIAttack(Unit const* /*who*/) const override { return true; } // do not check boundary here
 
-        void EnterCombat(Unit* who) override
+        void JustEngagedWith(Unit* who) override
         {
-            BossAI::EnterCombat(who);
+            BossAI::JustEngagedWith(who);
 
             if (GameObject* door = instance->GetGameObject(DATA_ANUBARAK_WALL))
                 door->SetGoState(GO_STATE_ACTIVE); // open door for now
@@ -301,9 +301,9 @@ public:
                 Talk(SAY_SLAY);
         }
 
-        void SetGUID(ObjectGuid guid, int32 type) override
+        void SetGUID(ObjectGuid const& guid, int32 id) override
         {
-            switch (type)
+            switch (id)
             {
                 case GUID_TYPE_PET:
                 {
@@ -386,12 +386,12 @@ public:
                         _assassinCount = 6;
                         _guardianCount = 2;
                         _venomancerCount = 2;
-                        events.ScheduleEvent(EVENT_DARTER, Seconds(0), 0, PHASE_SUBMERGE);
+                        events.ScheduleEvent(EVENT_DARTER, 0s, 0, PHASE_SUBMERGE);
                         break;
                 }
                 _petCount = _guardianCount + _venomancerCount;
                 if (_assassinCount)
-                    events.ScheduleEvent(EVENT_ASSASSIN, Seconds(0), 0, PHASE_SUBMERGE);
+                    events.ScheduleEvent(EVENT_ASSASSIN, 0s, 0, PHASE_SUBMERGE);
                 if (_guardianCount)
                     events.ScheduleEvent(EVENT_GUARDIAN, Seconds(4), 0, PHASE_SUBMERGE);
                 if (_venomancerCount)

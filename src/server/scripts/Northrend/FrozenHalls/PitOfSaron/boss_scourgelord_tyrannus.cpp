@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 TrinityCore <http://www.trinitycore.org/>
+ * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -161,7 +161,7 @@ class boss_tyrannus : public CreatureScript
                 return ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_RIMEFANG));
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
             }
@@ -338,9 +338,9 @@ class boss_rimefang : public CreatureScript
                     _EnterEvadeMode();
             }
 
-            void SetGUID(ObjectGuid guid, int32 type) override
+            void SetGUID(ObjectGuid const& guid, int32 id) override
             {
-                if (type == GUID_HOARFROST)
+                if (id == GUID_HOARFROST)
                 {
                     _hoarfrostTargetGUID = guid;
                     _events.ScheduleEvent(EVENT_HOARFROST, 1000);
@@ -404,13 +404,21 @@ class player_overlord_brandAI : public PlayerAI
         {
             if (Creature* tyrannus = ObjectAccessor::GetCreature(*me, _tyrannusGUID))
                 if (Unit* victim = tyrannus->GetVictim())
-                    me->CastCustomSpell(SPELL_OVERLORD_BRAND_DAMAGE, SPELLVALUE_BASE_POINT0, damage, victim, true, nullptr, nullptr, tyrannus->GetGUID());
+                {
+                    CastSpellExtraArgs args(tyrannus->GetGUID());
+                    args.AddSpellBP0(damage);
+                    me->CastSpell(victim, SPELL_OVERLORD_BRAND_DAMAGE, args);
+                }
         }
 
         void HealDone(Unit* /*target*/, uint32& addHealth) override
         {
             if (Creature* tyrannus = ObjectAccessor::GetCreature(*me, _tyrannusGUID))
-                me->CastCustomSpell(SPELL_OVERLORD_BRAND_HEAL, SPELLVALUE_BASE_POINT0, int32(addHealth * 5.5f), tyrannus, true, nullptr, nullptr, tyrannus->GetGUID());
+            {
+                CastSpellExtraArgs args(tyrannus->GetGUID());
+                args.AddSpellBP0(addHealth * 5.5f);
+                me->CastSpell(tyrannus, SPELL_OVERLORD_BRAND_HEAL, args);
+            }
         }
 
         void UpdateAI(uint32 /*diff*/) override { }
@@ -439,10 +447,7 @@ class spell_tyrannus_overlord_brand : public SpellScriptLoader
                     return;
 
                 Player* pTarget = GetTarget()->ToPlayer();
-                oldAI = pTarget->AI();
-                oldAIState = pTarget->IsAIEnabled;
                 GetTarget()->SetAI(new player_overlord_brandAI(pTarget, GetCasterGUID()));
-                GetTarget()->IsAIEnabled = true;
             }
 
             void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
@@ -450,10 +455,7 @@ class spell_tyrannus_overlord_brand : public SpellScriptLoader
                 if (GetTarget()->GetTypeId() != TYPEID_PLAYER)
                     return;
 
-                GetTarget()->IsAIEnabled = oldAIState;
-                PlayerAI* thisAI = GetTarget()->ToPlayer()->AI();
-                GetTarget()->SetAI(oldAI);
-                delete thisAI;
+                GetTarget()->SetAI(nullptr);
             }
 
             void Register() override
@@ -461,9 +463,6 @@ class spell_tyrannus_overlord_brand : public SpellScriptLoader
                 AfterEffectApply += AuraEffectApplyFn(spell_tyrannus_overlord_brand_AuraScript::OnApply, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
                 AfterEffectRemove += AuraEffectRemoveFn(spell_tyrannus_overlord_brand_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
             }
-
-            PlayerAI* oldAI = nullptr;
-            bool oldAIState = false;
         };
 
         AuraScript* GetAuraScript() const override
