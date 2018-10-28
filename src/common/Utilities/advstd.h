@@ -24,7 +24,8 @@
 #include <utility>
 
 // this namespace holds implementations of upcoming stdlib features that our c++ version doesn't have yet
-namespace advstd {
+namespace advstd
+{
     // C++17 std::apply (constrained to only function pointers, not all callable)
     template <typename... Ts>
     using apply_tuple_type = std::tuple<std::remove_cv_t<std::remove_reference_t<Ts>>...>;
@@ -63,11 +64,30 @@ namespace advstd {
     // C++17 std::is_floating_point_v
     forward_1v(is_floating_point, bool);
 
+    // C++17 std::is_pointer_v
+    forward_1v(is_pointer, bool);
+
+    // C++17 std::is_reference_v
+    forward_1v(is_reference, bool);
+
     // C++17 std::tuple_size_v
     forward_1v(tuple_size, size_t);
 
+    // C++17 std::is_enum_v
+    forward_1v(is_enum, bool);
+
+    // C++17 std::is_arithmetic_v
+    forward_1v(is_arithmetic, bool);
+
 #undef forward_1v
 #undef forward_2v
+
+    // C++17 std::size
+    template <class C>
+    constexpr auto size(const C& c) -> decltype(c.size()) { return c.size(); }
+
+    template <class T, std::size_t N>
+    constexpr std::size_t size(const T(&)[N]) noexcept { return N; }
 
     // C++20 std::remove_cvref_t
     template <class T>
