@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -85,11 +85,13 @@ protected:
     typedef void (SplineBase::*InitMethtod)(Vector3 const*, index_type, index_type);
     static InitMethtod initializers[ModesEnd];
 
-    void UninitializedSpline() const { ABORT();}
+    void UninitializedSplineEvaluationMethod(index_type, float, Vector3&) const { ABORT(); }
+    float UninitializedSplineSegLenghtMethod(index_type) const { ABORT(); return 0.0f; }
+    void UninitializedSplineInitMethod(Vector3 const*, index_type, index_type) { ABORT(); }
 
 public:
 
-    explicit SplineBase() : index_lo(0), index_hi(0), m_mode(UninitializedMode), cyclic(false) { }
+    explicit SplineBase() : index_lo(0), index_hi(0), m_mode(UninitializedMode), cyclic(false), initialOrientation(0.f) { }
 
     /** Caclulates the position for given segment Idx, and percent of segment length t
         @param t - percent of segment length, assumes that t in range [0, 1]
@@ -199,7 +201,12 @@ public:
     }
 
     /** Returns length of the whole spline. */
-    length_type length() const { return lengths[index_hi];}
+    length_type length() const
+    {
+        if (lengths.empty())
+            return 0;
+        return lengths[index_hi];
+    }
     /** Returns length between given nodes. */
     length_type length(index_type first, index_type last) const { return lengths[last]-lengths[first];}
     length_type length(index_type Idx) const { return lengths[Idx];}

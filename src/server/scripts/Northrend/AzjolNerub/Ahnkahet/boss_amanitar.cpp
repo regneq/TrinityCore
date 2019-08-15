@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -104,7 +104,7 @@ struct boss_amanitar : public BossAI
     {
         _EnterEvadeMode();
         summons.DespawnAll();
-        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_MINI);
+        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_MINI, true, true);
         _DespawnAtEvade();
     }
 
@@ -112,7 +112,7 @@ struct boss_amanitar : public BossAI
     {
         _JustDied();
         DoCastAOE(SPELL_REMOVE_MUSHROOM_POWER);
-        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_MINI);
+        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_MINI, true, true);
     }
 
     void JustSummoned(Creature* summon) override

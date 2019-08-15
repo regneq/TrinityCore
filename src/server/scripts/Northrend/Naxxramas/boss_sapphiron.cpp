@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -155,7 +155,7 @@ class boss_sapphiron : public CreatureScript
             {
                 if (events.IsInPhase(PHASE_FLIGHT))
                 {
-                    instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_ICEBOLT);
+                    instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_ICEBOLT, true, true);
                     me->SetReactState(REACT_AGGRESSIVE);
                     if (me->IsHovering())
                     {
@@ -379,7 +379,7 @@ class boss_sapphiron : public CreatureScript
                             case EVENT_EXPLOSION:
                                 DoCastAOE(SPELL_FROST_BREATH);
                                 DoCastAOE(SPELL_FROST_BREATH_ANTICHEAT);
-                                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_ICEBOLT);
+                                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_ICEBOLT, true, true);
                                 events.ScheduleEvent(EVENT_LAND, Seconds(3) + Milliseconds(500), 0, PHASE_FLIGHT);
                                 return;
                             case EVENT_LAND:

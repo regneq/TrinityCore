@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -167,7 +167,7 @@ struct boss_kalecgos : public BossAI
 
         _EnterEvadeMode();
         instance->SendEncounterUnit(ENCOUNTER_FRAME_DISENGAGE, me);
-        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_SPECTRAL_REALM_AURA);
+        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_SPECTRAL_REALM_AURA, true, true);
         summons.DespawnAll();
         DespawnPortals();
 
@@ -504,7 +504,7 @@ struct boss_sathrovarr : public BossAI
     {
         _JustDied();
         Talk(SAY_SATH_DEATH);
-        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_SPECTRAL_REALM_AURA);
+        instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_SPECTRAL_REALM_AURA, true, true);
         if (Creature* kalecgos = instance->GetCreature(DATA_KALECGOS_DRAGON))
             kalecgos->AI()->DoAction(ACTION_START_OUTRO);
     }

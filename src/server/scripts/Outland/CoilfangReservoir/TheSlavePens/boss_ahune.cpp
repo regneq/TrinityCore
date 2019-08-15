@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -262,7 +262,6 @@ struct boss_ahune : public BossAI
         if (Creature* frozenCore = instance->GetCreature(DATA_FROZEN_CORE))
             frozenCore->AI()->DoAction(ACTION_AHUNE_RETREAT);
         me->RemoveAurasDueToSpell(SPELL_AHUNES_SHIELD);
-        me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_UNK_31);
         DoCastSelf(SPELL_SUBMERGED, true);
         DoCastSelf(SPELL_AHUNE_SELF_STUN, true);
         DoCastSelf(SPELL_STAY_SUBMERGED, true);

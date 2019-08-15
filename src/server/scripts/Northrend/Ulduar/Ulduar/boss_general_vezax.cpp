@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -235,7 +235,7 @@ class boss_general_vezax : public CreatureScript
             {
                 _JustDied();
                 Talk(SAY_DEATH);
-                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_AURA_OF_DESPAIR);
+                instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_AURA_OF_DESPAIR, true, true);
             }
 
             void CheckShamanisticRage()

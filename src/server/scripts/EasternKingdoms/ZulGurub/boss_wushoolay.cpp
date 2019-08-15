@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -16,27 +16,20 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* ScriptData
-SDName: Boss_Wushoolay
-SD%Complete: 100
-SDComment:
-SDCategory: Zul'Gurub
-EndScriptData */
-
-#include "ScriptMgr.h"
-#include "ScriptedCreature.h"
 #include "zulgurub.h"
+#include "ScriptedCreature.h"
+#include "ScriptMgr.h"
 
 enum Spells
 {
-    SPELL_LIGHTNINGCLOUD        = 25033,
-    SPELL_LIGHTNINGWAVE         = 24819
+    SPELL_LIGHTNINGCLOUD = 25033,
+    SPELL_LIGHTNINGWAVE = 24819
 };
 
 enum Events
 {
-    EVENT_LIGHTNINGCLOUD        = 1,
-    EVENT_LIGHTNINGWAVE         = 2
+    EVENT_LIGHTNINGCLOUD = 1,
+    EVENT_LIGHTNINGWAVE = 2
 };
 
 class boss_wushoolay : public CreatureScript

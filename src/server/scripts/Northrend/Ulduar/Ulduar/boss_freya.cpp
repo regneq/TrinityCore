@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -228,9 +228,10 @@ class npc_iron_roots : public CreatureScript
                 me->SetReactState(REACT_PASSIVE);
             }
 
-            void IsSummonedBy(Unit* summoner) override
+            void IsSummonedBy(WorldObject* summonerWO) override
             {
-                if (summoner->GetTypeId() != TYPEID_PLAYER)
+                Player* summoner = summonerWO->ToPlayer();
+                if (!summoner)
                     return;
                 // Summoner is a player, who should have root aura on self
                 summonerGUID = summoner->GetGUID();
@@ -633,7 +634,7 @@ class boss_freya : public CreatureScript
                         Elder->RemoveAllAuras();
                         Elder->AttackStop();
                         Elder->CombatStop(true);
-                        Elder->GetThreatManager().ClearAllThreat();
+                        EngagementOver();
                         Elder->AI()->DoAction(ACTION_ELDER_FREYA_KILLED);
                     }
                 }

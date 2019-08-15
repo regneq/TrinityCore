@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -107,6 +107,7 @@ enum Spells
     SPELL_KINETIC_BOMB                  = 72080,
     SPELL_SHOCK_VORTEX                  = 72037,
     SPELL_EMPOWERED_SHOCK_VORTEX        = 72039,
+    SPELL_REMOVE_EMPOWERED_BLOOD        = 72131,
 
     // Kinetic Bomb
     SPELL_UNSTABLE                      = 72059,
@@ -247,7 +248,10 @@ class boss_blood_council_controller : public CreatureScript
                             prince->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                             prince->SetImmuneToPC(false);
                             if (bossData == DATA_PRINCE_VALANAR)
+                            {
                                 prince->SetHealth(prince->GetMaxHealth());
+                                prince->CastSpell(prince, SPELL_REMOVE_EMPOWERED_BLOOD, true);
+                            }
                         }
             }
 
@@ -1152,7 +1156,7 @@ class npc_dark_nucleus : public CreatureScript
                 if (attacker == me)
                     return;
 
-                me->GetThreatManager().ClearAllThreat();
+                me->GetThreatManager().ResetAllThreat();
                 AddThreat(attacker, 500000000.0f);
             }
 

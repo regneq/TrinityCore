@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -20,6 +20,7 @@
 #include "GameObjectAI.h"
 #include "InstanceScript.h"
 #include "Map.h"
+#include "MiscPackets.h"
 #include "ObjectAccessor.h"
 #include "Opcodes.h"
 #include "Player.h"
@@ -152,9 +153,8 @@ class boss_ossirian : public CreatureScript
 
                 Map* map = me->GetMap();
 
-                WorldPacket data(SMSG_WEATHER, (4+4+4));
-                data << uint32(WEATHER_STATE_HEAVY_SANDSTORM) << float(1) << uint8(0);
-                map->SendToPlayers(&data);
+                WorldPackets::Misc::Weather weather(WEATHER_STATE_HEAVY_SANDSTORM, 1.0f);
+                map->SendToPlayers(weather.Write());
 
                 for (uint8 i = 0; i < NUM_TORNADOS; ++i)
                 {

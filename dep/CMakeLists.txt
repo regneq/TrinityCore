@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+# Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -22,7 +22,6 @@ if (SERVERS OR TOOLS)
   add_subdirectory(valgrind)
   add_subdirectory(openssl)
   add_subdirectory(jemalloc)
-  add_subdirectory(smart_enum)
 endif()
 
 if (SERVERS)
@@ -30,6 +29,7 @@ if (SERVERS)
   add_subdirectory(readline)
   add_subdirectory(gsoap)
   add_subdirectory(efsw)
+  add_subdirectory(argon2)
 endif()
 
 if (TOOLS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -149,7 +149,7 @@ struct npc_frozen_orb : public ScriptedAI
 {
     npc_frozen_orb(Creature* creature) : ScriptedAI(creature) { }
 
-    void IsSummonedBy(Unit* /*summoner*/) override
+    void IsSummonedBy(WorldObject* /*summoner*/) override
     {
         DoCastSelf(SPELL_FROZEN_ORB_AURA, true);
         DoCastSelf(SPELL_FROZEN_ORB_DMG, true);

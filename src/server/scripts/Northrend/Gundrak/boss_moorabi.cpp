@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -121,8 +121,8 @@ class boss_moorabi : public CreatureScript
             void JustDied(Unit* /*killer*/) override
             {
                 _JustDied();
-                Talk(SAY_DEATH);
                 Talk(EMOTE_ACTIVATE_ALTAR);
+                Talk(SAY_DEATH);
             }
 
             void SpellHit(Unit* /*caster*/, SpellInfo const* spellInfo) override

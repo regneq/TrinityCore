@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -439,8 +439,7 @@ public:
 
 enum zumrahConsts
 {
-    ZUMRAH_ID = 7271,
-    ZUMRAH_HOSTILE_FACTION = 37
+    ZUMRAH_ID = 7271
 };
 
 class at_zumrah : public AreaTriggerScript
@@ -455,7 +454,7 @@ public:
         if (!pZumrah)
             return false;
 
-        pZumrah->SetFaction(ZUMRAH_HOSTILE_FACTION);
+        pZumrah->SetFaction(FACTION_TROLL_FROSTMANE);
         return true;
     }
 

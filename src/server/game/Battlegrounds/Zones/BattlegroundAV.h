@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -89,7 +89,7 @@ enum BG_AV_Sounds
     ally wins
 8192:
     ally tower destroy(only iceblood - found a bug^^)
-    ally tower  defend
+    ally tower defend
     horde tower defend
 8213
 horde:
@@ -1674,7 +1674,7 @@ class BattlegroundAV : public Battleground
         void ChangeMineOwner(uint8 mine, uint32 team, bool initial = false);
 
         /*worldstates*/
-        void FillInitialWorldStates(WorldPacket& data) override;
+        void FillInitialWorldStates(WorldPackets::WorldState::InitWorldStates& packet) override;
         void SendMineWorldStates(uint32 mine);
         void UpdateNodeWorldState(BG_AV_Nodes node);
 

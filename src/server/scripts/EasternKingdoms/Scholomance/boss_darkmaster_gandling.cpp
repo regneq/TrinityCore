@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -88,7 +88,7 @@ class boss_darkmaster_gandling : public CreatureScript
                     gate->SetGoState(GO_STATE_READY);
             }
 
-            void IsSummonedBy(Unit* /*summoner*/) override
+            void IsSummonedBy(WorldObject* /*summoner*/) override
             {
                 Talk(YELL_SUMMONED);
                 me->GetMotionMaster()->MoveRandom(5);

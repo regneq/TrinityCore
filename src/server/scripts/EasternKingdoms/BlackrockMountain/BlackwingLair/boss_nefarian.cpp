@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -81,7 +81,7 @@ enum Says
 
 enum Gossip
 {
-   GOSSIP_ID                   = 21332,
+   GOSSIP_ID                   = 6045,
    GOSSIP_OPTION_ID            = 0
 };
 
@@ -515,7 +515,7 @@ public:
                         break;
                     case EVENT_CLASSCALL:
                         if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f, true))
-                            switch (target->getClass())
+                            switch (target->GetClass())
                         {
                             case CLASS_MAGE:
                                 Talk(SAY_MAGE);

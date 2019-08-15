@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -122,7 +122,7 @@ public:
                         ThreatReference* secondThreat = nullptr;
                         ThreatReference* thirdThreat = nullptr;
 
-                        ThreatManager const& mgr = me->GetThreatManager();
+                        ThreatManager& mgr = me->GetThreatManager();
                         Unit* currentVictim = mgr.GetCurrentVictim();
                         auto list = mgr.GetModifiableThreatList();
                         auto it = list.begin(), end = list.end();

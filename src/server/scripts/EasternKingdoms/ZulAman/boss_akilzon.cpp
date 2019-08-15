@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 TrinityCore <https://www.trinitycore.org/>
+ * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
  * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -28,6 +28,7 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "CellImpl.h"
 #include "GridNotifiersImpl.h"
+#include "MiscPackets.h"
 #include "MotionMaster.h"
 #include "ObjectAccessor.h"
 #include "ScriptedCreature.h"
@@ -139,16 +140,13 @@ class boss_akilzon : public CreatureScript
                     Talk(SAY_KILL);
             }
 
-            void SetWeather(uint32 weather, float grade)
+            void SetWeather(WeatherState weather, float grade)
             {
                 Map* map = me->GetMap();
                 if (!map->IsDungeon())
                     return;
 
-                WorldPacket data(SMSG_WEATHER, (4+4+4));
-                data << uint32(weather) << float(grade) << uint8(0);
-
-                map->SendToPlayers(&data);
+                map->SendToPlayers(WorldPackets::Misc::Weather(weather, grade).Write());
             }
 
             void HandleStormSequence(Unit* Cloud) // 1: begin, 2-9: tick, 10: end
