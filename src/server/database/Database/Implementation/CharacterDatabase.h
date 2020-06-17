@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -261,7 +261,7 @@ enum CharacterDatabaseStatements : uint32
     CHAR_DEL_CORPSE,
     CHAR_DEL_CORPSES_FROM_MAP,
     CHAR_SEL_CORPSE_LOCATION,
-    
+
     CHAR_SEL_RESPAWNS,
     CHAR_REP_RESPAWN,
     CHAR_DEL_RESPAWN,

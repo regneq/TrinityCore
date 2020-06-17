@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -272,9 +272,9 @@ class boss_flame_leviathan : public CreatureScript
                 me->SetReactState(REACT_DEFENSIVE);
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 me->SetReactState(REACT_PASSIVE);
                 events.ScheduleEvent(EVENT_PURSUE, 1);
                 events.ScheduleEvent(EVENT_MISSILE, urand(1500, 4*IN_MILLISECONDS));
@@ -331,16 +331,16 @@ class boss_flame_leviathan : public CreatureScript
                 Talk(SAY_DEATH);
             }
 
-            void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+            void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
             {
-                if (spell->Id == SPELL_START_THE_ENGINE)
+                if (spellInfo->Id == SPELL_START_THE_ENGINE)
                     if (Vehicle* vehicleKit = me->GetVehicleKit())
                         vehicleKit->InstallAllAccessories(false);
 
-                if (spell->Id == SPELL_ELECTROSHOCK)
+                if (spellInfo->Id == SPELL_ELECTROSHOCK)
                     me->InterruptSpell(CURRENT_CHANNELED_SPELL);
 
-                if (spell->Id == SPELL_OVERLOAD_CIRCUIT)
+                if (spellInfo->Id == SPELL_OVERLOAD_CIRCUIT)
                     ++Shutdown;
             }
 
@@ -463,7 +463,7 @@ class boss_flame_leviathan : public CreatureScript
                             for (int32 i = 0; i < 4; ++i)
                                 me->SummonCreature(NPC_FREYA_BEACON, FreyaBeacons[i]);
 
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random))
                                 DoCast(target, SPELL_FREYA_S_WARD);
                             events.CancelEvent(EVENT_FREYA_S_WARD);
                             break;
@@ -476,16 +476,19 @@ class boss_flame_leviathan : public CreatureScript
                 DoBatteringRamIfReady();
             }
 
-            void SpellHitTarget(Unit* target, SpellInfo const* spell) override
+            void SpellHitTarget(WorldObject* target, SpellInfo const* spellInfo) override
             {
-                if (spell->Id != SPELL_PURSUED)
+                Unit* unitTarget = target->ToUnit();
+                if (!unitTarget)
                     return;
 
-                _pursueTarget = target->GetGUID();
-                me->GetMotionMaster()->Clear();
-                me->GetMotionMaster()->MoveChase(target);
+                if (spellInfo->Id != SPELL_PURSUED)
+                    return;
 
-                for (SeatMap::const_iterator itr = target->GetVehicleKit()->Seats.begin(); itr != target->GetVehicleKit()->Seats.end(); ++itr)
+                _pursueTarget = unitTarget->GetGUID();
+                AttackStart(unitTarget);
+
+                for (SeatMap::const_iterator itr = unitTarget->GetVehicleKit()->Seats.begin(); itr != unitTarget->GetVehicleKit()->Seats.end(); ++itr)
                 {
                     if (Player* passenger = ObjectAccessor::GetPlayer(*me, itr->second.Passenger.Guid))
                     {
@@ -698,7 +701,7 @@ class boss_flame_leviathan_defense_cannon : public CreatureScript
 
                 if (NapalmTimer <= diff)
                 {
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         if (CanAIAttack(target))
                             DoCast(target, SPELL_NAPALM, true);
 
@@ -907,9 +910,9 @@ class npc_pool_of_tar : public CreatureScript
                 damage = 0;
             }
 
-            void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+            void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
             {
-                if (spell->SchoolMask & SPELL_SCHOOL_MASK_FIRE && !me->HasAura(SPELL_BLAZE))
+                if (spellInfo->SchoolMask & SPELL_SCHOOL_MASK_FIRE && !me->HasAura(SPELL_BLAZE))
                     me->CastSpell(me, SPELL_BLAZE, true);
             }
 
@@ -1598,8 +1601,11 @@ class spell_auto_repair : public SpellScriptLoader
         {
             PrepareSpellScript(spell_auto_repair_SpellScript);
 
-            void CheckCooldownForTarget()
+            void CheckCooldownForTarget(SpellMissInfo missInfo)
             {
+                if (missInfo != SPELL_MISS_NONE)
+                    return;
+
                 if (GetHitUnit()->HasAuraEffect(SPELL_AUTO_REPAIR, EFFECT_2))   // Check presence of dummy aura indicating cooldown
                 {
                     PreventHitEffect(EFFECT_0);
@@ -1640,7 +1646,7 @@ class spell_auto_repair : public SpellScriptLoader
             void Register() override
             {
                 OnEffectHitTarget += SpellEffectFn(spell_auto_repair_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
-                BeforeHit += SpellHitFn(spell_auto_repair_SpellScript::CheckCooldownForTarget);
+                BeforeHit += BeforeSpellHitFn(spell_auto_repair_SpellScript::CheckCooldownForTarget);
             }
         };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -85,9 +85,9 @@ class boss_anzu : public CreatureScript
                 Initialize();
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 events.ScheduleEvent(EVENT_PARALYZING_SCREECH, 14s);
                 events.ScheduleEvent(EVENT_CYCLONE_OF_FEATHERS, 5s);
             }
@@ -130,7 +130,7 @@ class boss_anzu : public CreatureScript
                             events.ScheduleEvent(EVENT_PARALYZING_SCREECH, 25s);
                             break;
                         case EVENT_CYCLONE_OF_FEATHERS:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                                 DoCast(target, SPELL_CYCLONE_OF_FEATHERS);
                             events.ScheduleEvent(EVENT_CYCLONE_OF_FEATHERS, 21s);
                             break;
@@ -143,7 +143,7 @@ class boss_anzu : public CreatureScript
                             events.ScheduleEvent(EVENT_SPELL_BOMB, 12s);
                             break;
                         case EVENT_SPELL_BOMB:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                             {
                                 if (target->GetPowerType() == POWER_MANA)
                                 {

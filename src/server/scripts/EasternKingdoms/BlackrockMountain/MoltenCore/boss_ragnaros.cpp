@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -181,7 +180,7 @@ class boss_ragnaros : public CreatureScript
                         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                         me->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
                         me->HandleEmoteCommand(EMOTE_ONESHOT_EMERGE);
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                             AttackStart(target);
                         instance->SetData(DATA_RAGNAROS_ADDS, 0);
 
@@ -267,7 +266,7 @@ class boss_ragnaros : public CreatureScript
 
                                         // summon 8 elementals
                                         for (uint8 i = 0; i < 8; ++i)
-                                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                                                 if (Creature* summoned = me->SummonCreature(12143, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 900000))
                                                     summoned->AI()->AttackStart(target);
 
@@ -282,7 +281,7 @@ class boss_ragnaros : public CreatureScript
                                         Talk(SAY_REINFORCEMENTS2);
 
                                         for (uint8 i = 0; i < 8; ++i)
-                                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                                                 if (Creature* summoned = me->SummonCreature(12143, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), 0.0f, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 900000))
                                                     summoned->AI()->AttackStart(target);
 

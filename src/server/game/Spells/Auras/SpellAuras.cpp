@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -261,6 +260,14 @@ void AuraApplication::ClientUpdate(bool remove)
     BuildUpdatePacket(data, remove);
 
     _target->SendMessageToSet(&data, true);
+}
+
+std::string AuraApplication::GetDebugInfo() const
+{
+    std::stringstream sstr;
+    sstr << "Base: " << (GetBase() ? GetBase()->GetDebugInfo() : "NULL")
+        << "\nTarget: " << (GetTarget() ? GetTarget()->GetDebugInfo() : "NULL");
+    return sstr.str();
 }
 
 uint8 Aura::BuildEffectMaskForOwner(SpellInfo const* spellProto, uint8 availableEffectMask, WorldObject* owner)
@@ -586,8 +593,8 @@ void Aura::_UnapplyForTarget(Unit* target, Unit* caster, AuraApplication* auraAp
     /// @todo Figure out why this happens
     if (itr == m_applications.end())
     {
-        TC_LOG_ERROR("spells", "Aura::_UnapplyForTarget, target:%u, caster:%u, spell:%u was not found in owners application map!",
-        target->GetGUID().GetCounter(), caster ? caster->GetGUID().GetCounter() : 0, auraApp->GetBase()->GetSpellInfo()->Id);
+        TC_LOG_ERROR("spells", "Aura::_UnapplyForTarget, target: %s, caster: %s, spell:%u was not found in owners application map!",
+        target->GetGUID().ToString().c_str(), caster ? caster->GetGUID().ToString().c_str() : "0", auraApp->GetBase()->GetSpellInfo()->Id);
         ABORT();
     }
 
@@ -2073,9 +2080,9 @@ uint8 Aura::GetProcEffectMask(AuraApplication* aurApp, ProcEventInfo& eventInfo,
     // At least one effect has to pass checks to proc aura
     uint8 procEffectMask = aurApp->GetEffectMask();
     for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
-        if (procEffectMask & (1 << i))
-            if ((procEntry->AttributesMask & (PROC_ATTR_DISABLE_EFF_0 << i)) || !GetEffect(i)->CheckEffectProc(aurApp, eventInfo))
-                procEffectMask &= ~(1 << i);
+        if (procEffectMask & (1u << i))
+            if ((procEntry->DisableEffectsMask & (1u << i)) || !GetEffect(i)->CheckEffectProc(aurApp, eventInfo))
+                procEffectMask &= ~(1u << i);
 
     if (!procEffectMask)
         return 0;

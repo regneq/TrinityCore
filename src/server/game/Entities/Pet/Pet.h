@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -46,6 +45,7 @@ class TC_GAME_API Pet : public Guardian
         void AddToWorld() override;
         void RemoveFromWorld() override;
 
+        float GetNativeObjectScale() const override;
         void SetDisplayId(uint32 modelId) override;
 
         PetType getPetType() const { return m_petType; }
@@ -109,9 +109,9 @@ class TC_GAME_API Pet : public Guardian
 
         void _LoadSpellCooldowns();
         void _LoadAuras(uint32 timediff);
-        void _SaveAuras(SQLTransaction& trans);
+        void _SaveAuras(CharacterDatabaseTransaction& trans);
         void _LoadSpells();
-        void _SaveSpells(SQLTransaction& trans);
+        void _SaveSpells(CharacterDatabaseTransaction& trans);
 
         bool addSpell(uint32 spellId, ActiveStates active = ACT_DECIDE, PetSpellState state = PETSPELL_NEW, PetSpellType type = PETSPELL_NORMAL);
         bool learnSpell(uint32 spell_id);

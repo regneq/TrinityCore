@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1333,6 +1333,24 @@ class spell_dk_hysteria : public AuraScript
     }
 };
 
+// 55095 - Frost Fever
+class spell_dk_frost_fever : public AuraScript
+{
+    PrepareAuraScript(spell_dk_frost_fever);
+
+    void HandleDispel(DispelInfo* /*dispelInfo*/)
+    {
+        if (Unit* caster = GetCaster())
+            if (AuraEffect* icyClutch = GetUnitOwner()->GetAuraEffect(SPELL_AURA_MOD_DECREASE_SPEED, SPELLFAMILY_DEATHKNIGHT, 0, 0x00040000, 0, caster->GetGUID()))
+                GetUnitOwner()->RemoveAurasDueToSpell(icyClutch->GetId());
+    }
+
+    void Register() override
+    {
+        AfterDispel += AuraDispelFn(spell_dk_frost_fever::HandleDispel);
+    }
+};
+
 // 51209 - Hungering Cold
 class spell_dk_hungering_cold : public SpellScriptLoader
 {
@@ -2104,9 +2122,9 @@ class spell_dk_rime : public SpellScriptLoader
     public:
         spell_dk_rime() : SpellScriptLoader("spell_dk_rime") { }
 
-        class spell_dk_blade_barrier_AuraScript : public AuraScript
+        class spell_dk_rime_AuraScript : public AuraScript
         {
-            PrepareAuraScript(spell_dk_blade_barrier_AuraScript);
+            PrepareAuraScript(spell_dk_rime_AuraScript);
 
             bool CheckProc(ProcEventInfo& /*eventInfo*/)
             {
@@ -2124,14 +2142,14 @@ class spell_dk_rime : public SpellScriptLoader
 
             void Register() override
             {
-                DoCheckProc += AuraCheckProcFn(spell_dk_blade_barrier_AuraScript::CheckProc);
-                OnEffectProc += AuraEffectProcFn(spell_dk_blade_barrier_AuraScript::HandleProc, EFFECT_1, SPELL_AURA_PROC_TRIGGER_SPELL);
+                DoCheckProc += AuraCheckProcFn(spell_dk_rime_AuraScript::CheckProc);
+                OnEffectProc += AuraEffectProcFn(spell_dk_rime_AuraScript::HandleProc, EFFECT_1, SPELL_AURA_PROC_TRIGGER_SPELL);
             }
         };
 
         AuraScript* GetAuraScript() const override
         {
-            return new spell_dk_blade_barrier_AuraScript();
+            return new spell_dk_rime_AuraScript();
         }
 };
 
@@ -3197,6 +3215,7 @@ void AddSC_deathknight_spell_scripts()
     new spell_dk_glyph_of_scourge_strike();
     RegisterSpellScript(spell_dk_glyph_of_scourge_strike_script);
     RegisterAuraScript(spell_dk_hysteria);
+    RegisterAuraScript(spell_dk_frost_fever);
     new spell_dk_hungering_cold();
     new spell_dk_icebound_fortitude();
     new spell_dk_improved_blood_presence();

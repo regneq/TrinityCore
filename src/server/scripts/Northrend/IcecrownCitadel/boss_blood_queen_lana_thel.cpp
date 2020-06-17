@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -556,9 +556,9 @@ class spell_blood_queen_vampiric_bite : public SpellScriptLoader
                 return SPELL_CAST_OK;
             }
 
-            void OnCast()
+            void OnCast(SpellMissInfo missInfo)
             {
-                if (GetCaster()->GetTypeId() != TYPEID_PLAYER)
+                if (GetCaster()->GetTypeId() != TYPEID_PLAYER || missInfo != SPELL_MISS_NONE)
                     return;
 
                 uint32 spellId = sSpellMgr->GetSpellIdForDifficulty(SPELL_FRENZIED_BLOODTHIRST, GetCaster());
@@ -591,7 +591,7 @@ class spell_blood_queen_vampiric_bite : public SpellScriptLoader
             void Register() override
             {
                 OnCheckCast += SpellCheckCastFn(spell_blood_queen_vampiric_bite_SpellScript::CheckTarget);
-                BeforeHit += SpellHitFn(spell_blood_queen_vampiric_bite_SpellScript::OnCast);
+                BeforeHit += BeforeSpellHitFn(spell_blood_queen_vampiric_bite_SpellScript::OnCast);
                 OnEffectHitTarget += SpellEffectFn(spell_blood_queen_vampiric_bite_SpellScript::HandlePresence, EFFECT_1, SPELL_EFFECT_TRIGGER_SPELL);
             }
         };
@@ -862,6 +862,27 @@ class spell_blood_queen_pact_of_the_darkfallen_dmg_target : public SpellScriptLo
         }
 };
 
+// 71446, 71478, 71479, 71480 - Twilight Bloodbolt
+class spell_blood_queen_twilight_bloodbolt : public SpellScript
+{
+    PrepareSpellScript(spell_blood_queen_twilight_bloodbolt);
+
+    void HandleResistance(DamageInfo const& damageInfo, uint32& resistAmount, int32& /*absorbAmount*/)
+    {
+        Unit* caster = damageInfo.GetAttacker();;
+        Unit* target = damageInfo.GetVictim();
+        uint32 damage = damageInfo.GetDamage();
+        uint32 resistedDamage = Unit::CalcSpellResistedDamage(caster, target, damage, SPELL_SCHOOL_MASK_SHADOW, nullptr);
+        resistedDamage += Unit::CalcSpellResistedDamage(caster, target, damage, SPELL_SCHOOL_MASK_ARCANE, nullptr);
+        resistAmount = resistedDamage;
+    }
+
+    void Register() override
+    {
+        OnCalculateResistAbsorb += SpellOnResistAbsorbCalculateFn(spell_blood_queen_twilight_bloodbolt::HandleResistance);
+    }
+};
+
 class achievement_once_bitten_twice_shy_n : public AchievementCriteriaScript
 {
     public:
@@ -904,6 +925,7 @@ void AddSC_boss_blood_queen_lana_thel()
     new spell_blood_queen_pact_of_the_darkfallen();
     new spell_blood_queen_pact_of_the_darkfallen_dmg();
     new spell_blood_queen_pact_of_the_darkfallen_dmg_target();
+    RegisterSpellScript(spell_blood_queen_twilight_bloodbolt);
     new achievement_once_bitten_twice_shy_n();
     new achievement_once_bitten_twice_shy_v();
 }

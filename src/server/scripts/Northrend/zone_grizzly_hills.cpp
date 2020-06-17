@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -300,13 +299,17 @@ public:
                 _gender = Data;
         }
 
-        void SpellHit(Unit* Caster, SpellInfo const* Spell) override
+        void SpellHit(WorldObject* caster, SpellInfo const* spellInfo) override
         {
-             if (Spell->Id == SPELL_OUTHOUSE_GROANS)
-             {
+            Unit* unitCaster = caster->ToUnit();
+            if (!unitCaster)
+                return;
+
+            if (spellInfo->Id == SPELL_OUTHOUSE_GROANS)
+            {
                 ++_counter;
                 if (_counter < 5)
-                    DoCast(Caster, SPELL_CAMERA_SHAKE, true);
+                    DoCast(unitCaster, SPELL_CAMERA_SHAKE, true);
                 else
                     _counter = 0;
                 DoCast(me, SPELL_DUST_FIELD, true);
@@ -497,13 +500,16 @@ public:
                 me->DespawnOrUnsummon(_despawnTimer);
         }
 
-        void SpellHit(Unit* caster, SpellInfo const* spell) override
+        void SpellHit(WorldObject* caster, SpellInfo const* spellInfo) override
         {
-            if (spell->Id == SPELL_RENEW_SKIRMISHER && caster->GetTypeId() == TYPEID_PLAYER
-                && caster->ToPlayer()->GetQuestStatus(QUEST_OVERWHELMED) == QUEST_STATUS_INCOMPLETE)
+            Player* playerCaster = caster->ToPlayer();
+            if (!playerCaster)
+                return;
+
+            if (spellInfo->Id == SPELL_RENEW_SKIRMISHER && playerCaster->GetQuestStatus(QUEST_OVERWHELMED) == QUEST_STATUS_INCOMPLETE)
             {
-                DoCast(caster, SPELL_KILL_CREDIT);
-                Talk(SAY_RANDOM, caster);
+                DoCast(playerCaster, SPELL_KILL_CREDIT);
+                Talk(SAY_RANDOM, playerCaster);
                 if (me->IsStandState())
                     me->GetMotionMaster()->MovePoint(1, me->GetPositionX()+7, me->GetPositionY()+7, me->GetPositionZ());
                 else
@@ -618,9 +624,9 @@ public:
             DoMeleeAttackIfReady();
         }
 
-        void SpellHit(Unit* caster, SpellInfo const* spell) override
+        void SpellHit(WorldObject* caster, SpellInfo const* spellInfo) override
         {
-            if (spell->Id == SPELL_SMOKE_BOMB && caster->GetTypeId() == TYPEID_PLAYER)
+            if (spellInfo->Id == SPELL_SMOKE_BOMB && caster->GetTypeId() == TYPEID_PLAYER)
             {
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                 me->SetImmuneToPC(true);
@@ -910,7 +916,7 @@ public:
             FinishQuest(false, _faction);
         }
 
-        void SpellHit(Unit* caster, SpellInfo const* /*spellInfo*/) override
+        void SpellHit(WorldObject* caster, SpellInfo const* /*spellInfo*/) override
         {
             if (caster->GetEntry() == NPC_HORDE_LUMBERBOAT || caster->GetEntry() == NPC_ALLIANCE_LUMBERBOAT)
                 FinishQuest(true, _faction);

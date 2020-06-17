@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -61,9 +61,9 @@ class boss_zereketh_the_unbound : public CreatureScript
                 Talk(SAY_DEATH);
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 events.ScheduleEvent(EVENT_VOID_ZONE, urand (6000, 10000));
                 events.ScheduleEvent(EVENT_SHADOW_NOVA, urand (6000, 10000));
                 events.ScheduleEvent(EVENT_SEED_OF_CORRUPTION, 12s, 20s);
@@ -90,7 +90,7 @@ class boss_zereketh_the_unbound : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_VOID_ZONE:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 100, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1, 100, true))
                                 DoCast(target, SPELL_VOID_ZONE);
                             events.ScheduleEvent(EVENT_VOID_ZONE, urand (6000, 10000));
                             break;
@@ -100,7 +100,7 @@ class boss_zereketh_the_unbound : public CreatureScript
                             events.ScheduleEvent(EVENT_SHADOW_NOVA, urand (6000, 10000));
                             break;
                         case EVENT_SEED_OF_CORRUPTION:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 100, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1, 100, true))
                                 DoCast(target, SPELL_SEED_OF_CORRUPTION);
                             events.ScheduleEvent(EVENT_SEED_OF_CORRUPTION, 12s, 20s);
                             break;

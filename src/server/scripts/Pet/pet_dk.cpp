@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -73,13 +73,13 @@ class npc_pet_dk_ebon_gargoyle : public CreatureScript
             }
 
             // Fly away when dismissed
-            void SpellHit(Unit* source, SpellInfo const* spell) override
+            void SpellHit(WorldObject* caster, SpellInfo const* spellInfo) override
             {
-                if (spell->Id != SPELL_DK_DISMISS_GARGOYLE || !me->IsAlive())
+                if (spellInfo->Id != SPELL_DK_DISMISS_GARGOYLE || !me->IsAlive())
                     return;
 
                 Unit* owner = me->GetOwner();
-                if (!owner || owner != source)
+                if (!owner || owner != caster)
                     return;
 
                 // Stop Fighting

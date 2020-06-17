@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -39,6 +38,7 @@ namespace WorldPackets
 class Aura;
 class AuraEffect;
 class Corpse;
+class DamageInfo;
 class DynamicObject;
 class DynObjAura;
 class GameObject;
@@ -343,6 +343,7 @@ class TC_GAME_API Spell
         void EffectSendTaxi(SpellEffIndex effIndex);
         void EffectKnockBack(SpellEffIndex effIndex);
         void EffectPullTowards(SpellEffIndex effIndex);
+        void EffectPullTowardsDest(SpellEffIndex effIndex);
         void EffectDispelMechanic(SpellEffIndex effIndex);
         void EffectResurrectPet(SpellEffIndex effIndex);
         void EffectDestroyAllTotems(SpellEffIndex effIndex);
@@ -471,6 +472,7 @@ class TC_GAME_API Spell
         static void SendCastResult(Player* caster, SpellInfo const* spellInfo, uint8 castCount, SpellCastResult result, SpellCustomErrors customError = SPELL_CUSTOM_ERROR_NONE, uint32* param1 = nullptr, uint32* param2 = nullptr);
         void SendCastResult(SpellCastResult result, uint32* param1 = nullptr, uint32* param2 = nullptr) const;
         void SendPetCastResult(SpellCastResult result);
+        void SendMountResult(MountResult result);
         void SendSpellStart();
         void SendSpellGo();
         void SendSpellCooldown();
@@ -561,6 +563,7 @@ class TC_GAME_API Spell
         Spell** m_selfContainer;                            // pointer to our spell container (if applicable)
 
         std::string GetDebugInfo() const;
+        void CallScriptOnResistAbsorbCalculateHandlers(DamageInfo const& damageInfo, uint32& resistAmount, int32& absorbAmount);
 
     protected:
         bool HasGlobalCooldown() const;
@@ -740,7 +743,7 @@ class TC_GAME_API Spell
         SpellCastResult CallScriptCheckCastHandlers();
         bool CallScriptEffectHandlers(SpellEffIndex effIndex, SpellEffectHandleMode mode);
         void CallScriptSuccessfulDispel(SpellEffIndex effIndex);
-        void CallScriptBeforeHitHandlers();
+        void CallScriptBeforeHitHandlers(SpellMissInfo missInfo);
         void CallScriptOnHitHandlers();
         void CallScriptAfterHitHandlers();
         void CallScriptObjectAreaTargetSelectHandlers(std::list<WorldObject*>& targets, SpellEffIndex effIndex, SpellImplicitTargetInfo const& targetType);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -144,9 +144,9 @@ class boss_urom : public CreatureScript
                 DoCastSelf(SPELL_EVOCATE);
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 StartAttack();
             }
 
@@ -271,7 +271,7 @@ class boss_urom : public CreatureScript
                             events.ScheduleEvent(EVENT_FROST_BOMB, 5s, 8s);
                             break;
                         case EVENT_TIME_BOMB:
-                            if (Unit* unit = SelectTarget(SELECT_TARGET_RANDOM))
+                            if (Unit* unit = SelectTarget(SelectTargetMethod::Random))
                                 DoCast(unit, SPELL_TIME_BOMB);
                             events.ScheduleEvent(EVENT_TIME_BOMB, 20s, 25s);
                             break;
@@ -295,7 +295,7 @@ class boss_urom : public CreatureScript
                 EngagementOver();
             }
 
-            void SpellHit(Unit* /*caster*/, SpellInfo const* spellInfo) override
+            void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
             {
                 switch (spellInfo->Id)
                 {

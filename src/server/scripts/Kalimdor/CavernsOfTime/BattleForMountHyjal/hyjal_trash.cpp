@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -755,7 +755,7 @@ public:
 
         void JustSummoned(Creature* summon) override
         {
-            Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 30, true);
+            Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 30, true);
             if (target)
                 summon->Attack(target, false);
             summons.Summon(summon);
@@ -1353,7 +1353,7 @@ public:
                 if (forcemove)
                 {
                     forcemove = false;
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         me->Attack(target, false);
                 }
                 if (MoveTimer <= diff)

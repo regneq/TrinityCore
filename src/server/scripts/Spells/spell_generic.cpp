@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -191,7 +191,6 @@ class spell_gen_animal_blood : public AuraScript
     void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
         if (Unit* owner = GetUnitOwner())
-            if (owner->IsInWater())
                 owner->CastSpell(owner, SPELL_SPAWN_BLOOD_POOL, true);
     }
 
@@ -501,6 +500,46 @@ class spell_gen_bandage : public SpellScript
     {
         OnCheckCast += SpellCheckCastFn(spell_gen_bandage::CheckCast);
         AfterHit += SpellHitFn(spell_gen_bandage::HandleScript);
+    }
+};
+
+enum BlackMagicSpellIconId
+{
+    SPELLICON_DRUID_INFECTED_WOUNDS = 2857
+};
+
+// 59630 - Black Magic
+class spell_gen_black_magic : public AuraScript
+{
+    PrepareAuraScript(spell_gen_black_magic);
+
+    bool CheckProc(ProcEventInfo& eventInfo)
+    {
+        SpellInfo const* spellInfo = eventInfo.GetSpellInfo();
+        uint32 typeMask = eventInfo.GetTypeMask();
+        if (!spellInfo)
+            return false;
+
+        if (typeMask & PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_NEG)
+            return true;
+        else if (typeMask & PROC_FLAG_DONE_SPELL_MELEE_DMG_CLASS)
+        {
+            // Shred and Mangle (Cat)
+            if (spellInfo->SpellFamilyName == SPELLFAMILY_DRUID && (spellInfo->SpellFamilyFlags[0] == 0x00008000 || spellInfo->SpellFamilyFlags[1] == 0x00000400))
+                return true;
+        }
+        else if (typeMask & PROC_FLAG_DONE_SPELL_NONE_DMG_CLASS_NEG)
+        {
+            if (spellInfo->SpellFamilyName == SPELLFAMILY_DRUID && spellInfo->SpellIconID == SPELLICON_DRUID_INFECTED_WOUNDS)
+                return true;
+        }
+
+        return false;
+    }
+
+    void Register() override
+    {
+        DoCheckProc += AuraCheckProcFn(spell_gen_black_magic::CheckProc);
     }
 };
 
@@ -1895,6 +1934,80 @@ class spell_gen_gnomish_transporter : public SpellScript
     }
 };
 
+enum LichPet
+{
+    NPC_LICH_PET                = 36979,
+
+    SPELL_LICH_PET_AURA         = 69732,
+    SPELL_LICH_PET_AURA_ONKILL  = 69731
+};
+
+// 69732 - Lich Pet Aura
+class spell_gen_lich_pet_aura : public AuraScript
+{
+    PrepareAuraScript(spell_gen_lich_pet_aura);
+
+    bool CheckProc(ProcEventInfo& eventInfo)
+    {
+        return (eventInfo.GetProcTarget()->GetTypeId() == TYPEID_PLAYER);
+    }
+
+    void HandleProc(AuraEffect const* /* aurEff */, ProcEventInfo& /* eventInfo */)
+    {
+        PreventDefaultAction();
+
+        std::list<Creature*> minionList;
+        GetUnitOwner()->GetAllMinionsByEntry(minionList, NPC_LICH_PET);
+        for (Creature* minion : minionList)
+            if (minion->IsAIEnabled())
+                minion->AI()->DoCastSelf(SPELL_LICH_PET_AURA_ONKILL);
+    }
+
+    void Register() override
+    {
+        DoCheckProc += AuraCheckProcFn(spell_gen_lich_pet_aura::CheckProc);
+        OnEffectProc += AuraEffectProcFn(spell_gen_lich_pet_aura::HandleProc, EFFECT_0, SPELL_AURA_PROC_TRIGGER_SPELL);
+    }
+};
+
+// 69735 - Lich Pet OnSummon
+class spell_gen_lich_pet_onsummon : public SpellScript
+{
+    PrepareSpellScript(spell_gen_lich_pet_onsummon);
+
+    bool Validate(SpellInfo const* /* spellInfo */) override
+    {
+        return ValidateSpellInfo({ SPELL_LICH_PET_AURA });
+    }
+
+    void HandleScriptEffect(SpellEffIndex /* effIndex */)
+    {
+        Unit* target = GetHitUnit();
+        target->CastSpell(target, SPELL_LICH_PET_AURA, true);
+    }
+
+    void Register() override
+    {
+        OnEffectHitTarget += SpellEffectFn(spell_gen_lich_pet_onsummon::HandleScriptEffect, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+    }
+};
+
+// 69736 - Lich Pet Aura Remove
+class spell_gen_lich_pet_aura_remove : public SpellScript
+{
+    PrepareSpellScript(spell_gen_lich_pet_aura_remove);
+
+    void HandleScriptEffect(SpellEffIndex /* effIndex */)
+    {
+        GetHitUnit()->RemoveAurasDueToSpell(SPELL_LICH_PET_AURA);
+    }
+
+    void Register() override
+    {
+        OnEffectHitTarget += SpellEffectFn(spell_gen_lich_pet_aura_remove::HandleScriptEffect, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+    }
+};
+
 class spell_gen_lifeblood : public AuraScript
 {
     PrepareAuraScript(spell_gen_lifeblood);
@@ -2872,19 +2985,19 @@ class spell_gen_restoration : public AuraScript
     {
         PreventDefaultAction();
 
-        Unit* caster = GetCaster();
-        if (!caster)
+        Unit* target = GetTarget();
+        if (!target)
             return;
 
-        int32 heal = caster->CountPctFromMaxHealth(10);
-        HealInfo healInfo(caster, GetTarget(), heal, GetSpellInfo(), GetSpellInfo()->GetSchoolMask());
-        caster->HealBySpell(healInfo);
+        int32 heal = target->CountPctFromMaxHealth(10);
+        HealInfo healInfo(target, target, heal, GetSpellInfo(), GetSpellInfo()->GetSchoolMask());
+        target->HealBySpell(healInfo);
 
         /// @todo: should proc other auras?
-        if (int32 mana = caster->GetMaxPower(POWER_MANA))
+        if (int32 mana = target->GetMaxPower(POWER_MANA))
         {
             mana /= 10;
-            caster->EnergizeBySpell(caster, GetId(), mana, POWER_MANA);
+            target->EnergizeBySpell(target, GetId(), mana, POWER_MANA);
         }
     }
 
@@ -3423,12 +3536,17 @@ class spell_gen_turkey_marker : public AuraScript
 
     void OnPeriodic(AuraEffect const* /*aurEff*/)
     {
-        if (_applyTimes.empty())
-            return;
+        int32 removeCount = 0;
 
-        // pop stack if it expired for us
-        if (_applyTimes.front() + GetMaxDuration() < GameTime::GetGameTimeMS())
-            ModStackAmount(-1, AURA_REMOVE_BY_EXPIRE);
+        // pop expired times off of the stack
+        while (!_applyTimes.empty() && _applyTimes.front() + GetMaxDuration() < GameTime::GetGameTimeMS())
+        {
+            _applyTimes.pop_front();
+            removeCount++;
+        }
+
+        if (removeCount)
+            ModStackAmount(-removeCount, AURA_REMOVE_BY_EXPIRE);
     }
 
     void Register() override
@@ -4324,6 +4442,35 @@ class spell_gen_charmed_unit_spell_cooldown : public SpellScript
     }
 };
 
+enum CannonBlast
+{
+    SPELL_CANNON_BLAST          = 42578,
+    SPELL_CANNON_BLAST_DAMAGE   = 42576
+};
+
+class spell_gen_cannon_blast : public SpellScript
+{
+    PrepareSpellScript(spell_gen_cannon_blast);
+
+    bool Validate(SpellInfo const* /*spellInfo*/) override
+    {
+        return ValidateSpellInfo({ SPELL_CANNON_BLAST });
+    }
+    void HandleScript(SpellEffIndex effIndex)
+    {
+        int32 bp = GetSpellInfo()->Effects[effIndex].CalcValue();
+        Unit* target = GetHitUnit();
+        CastSpellExtraArgs args(TRIGGERED_FULL_MASK);
+        args.AddSpellBP0(bp);
+        target->CastSpell(target, SPELL_CANNON_BLAST_DAMAGE, args);
+    }
+
+    void Register() override
+    {
+        OnEffectHitTarget += SpellEffectFn(spell_gen_cannon_blast::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+    }
+};
+
 void AddSC_generic_spell_scripts()
 {
     RegisterAuraScript(spell_gen_absorb0_hitlimit1);
@@ -4338,6 +4485,7 @@ void AddSC_generic_spell_scripts()
     RegisterAuraScript(spell_gen_aura_service_uniform);
     RegisterAuraScript(spell_gen_av_drekthar_presence);
     RegisterSpellScript(spell_gen_bandage);
+    RegisterAuraScript(spell_gen_black_magic);
     RegisterAuraScript(spell_gen_blood_reserve);
     RegisterAuraScript(spell_gen_blade_warding);
     RegisterSpellScript(spell_gen_bonked);
@@ -4376,6 +4524,9 @@ void AddSC_generic_spell_scripts()
     RegisterSpellScript(spell_gen_gadgetzan_transporter_backfire);
     RegisterAuraScript(spell_gen_gift_of_naaru);
     RegisterSpellScript(spell_gen_gnomish_transporter);
+    RegisterAuraScript(spell_gen_lich_pet_aura);
+    RegisterSpellScript(spell_gen_lich_pet_onsummon);
+    RegisterSpellScript(spell_gen_lich_pet_aura_remove);
     RegisterAuraScript(spell_gen_lifeblood);
     new spell_gen_lifebloom("spell_hexlord_lifebloom", SPELL_HEXLORD_MALACRASS_LIFEBLOOM_FINAL_HEAL);
     new spell_gen_lifebloom("spell_tur_ragepaw_lifebloom", SPELL_TUR_RAGEPAW_LIFEBLOOM_FINAL_HEAL);
@@ -4451,4 +4602,5 @@ void AddSC_generic_spell_scripts()
     RegisterAuraScript(spell_gen_vehicle_control_link);
     RegisterSpellScript(spell_freezing_circle);
     RegisterSpellScript(spell_gen_charmed_unit_spell_cooldown);
+    RegisterSpellScript(spell_gen_cannon_blast);
 }

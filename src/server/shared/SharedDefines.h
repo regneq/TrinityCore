@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1651,7 +1650,7 @@ enum GOState : uint8
 {
     GO_STATE_ACTIVE             = 0,                        // show in world as used and not reset (closed door open)
     GO_STATE_READY              = 1,                        // show in world as ready (closed door close)
-    GO_STATE_ACTIVE_ALTERNATIVE = 2                         // show in world as used in alt way and not reset (closed door open by cannon fire)
+    GO_STATE_DESTROYED          = 2                         // show the object in-game as already used and not yet reset (e.g. door opened by a cannon blast)
 };
 
 #define MAX_GO_STATE              3
@@ -3458,6 +3457,13 @@ enum ResponseCodes
     CHAR_NAME_DECLENSION_DOESNT_MATCH_BASE_NAME            = 103
 };
 
+enum ComplaintStatus : uint8
+{
+    COMPLAINT_DISABLED                      = 0,
+    COMPLAINT_ENABLED_WITHOUT_AUTO_IGNORE   = 1,
+    COMPLAINT_ENABLED_WITH_AUTO_IGNORE      = 2
+};
+
 /// Ban function modes
 enum BanMode
 {
@@ -3793,6 +3799,21 @@ enum ServerProcessTypes
     SERVER_PROCESS_WORLDSERVER = 1,
 
     NUM_SERVER_PROCESS_TYPES
+};
+
+enum class MountResult : uint32
+{
+    InvalidMountee = 0,
+    TooFarAway     = 1,
+    AlreadyMounted = 2,
+    NotMountable   = 3,
+    NotYourPet     = 4,
+    Other          = 5,
+    Looting        = 6,
+    RaceCantMount  = 7,
+    Shapeshifted   = 8,
+    ForcedDismount = 9,
+    Ok             = 10 // never sent
 };
 
 namespace Trinity

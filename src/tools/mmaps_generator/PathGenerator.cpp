@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2011 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,6 +20,7 @@
 #include "MapBuilder.h"
 #include "PathCommon.h"
 #include "Timer.h"
+#include "Util.h"
 #include <boost/filesystem.hpp>
 #include <unordered_map>
 
@@ -327,6 +327,6 @@ int main(int argc, char** argv)
         builder.buildAllMaps(threads);
 
     if (!silent)
-        printf("Finished. MMAPS were built in %u ms!\n", GetMSTimeDiffToNow(start));
+        printf("Finished. MMAPS were built in %s\n", secsToTimeString(GetMSTimeDiffToNow(start) / 1000).c_str());
     return 0;
 }

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -173,10 +172,10 @@ void AuthSession::Start()
     std::string ip_address = GetRemoteIpAddress().to_string();
     TC_LOG_TRACE("session", "Accepted connection from %s", ip_address.c_str());
 
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_IP_INFO);
+    LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_IP_INFO);
     stmt->setString(0, ip_address);
 
-    _queryProcessor.AddQuery(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::CheckIpCallback, this, std::placeholders::_1)));
+    _queryProcessor.AddCallback(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::CheckIpCallback, this, std::placeholders::_1)));
 }
 
 bool AuthSession::Update()
@@ -184,7 +183,7 @@ bool AuthSession::Update()
     if (!AuthSocket::Update())
         return false;
 
-    _queryProcessor.ProcessReadyQueries();
+    _queryProcessor.ProcessReadyCallbacks();
 
     return true;
 }
@@ -306,10 +305,10 @@ bool AuthSession::HandleLogonChallenge()
         _localizationName[i] = challenge->country[4 - i - 1];
 
     // Get the account details from the account table
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_LOGONCHALLENGE);
+    LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_LOGONCHALLENGE);
     stmt->setString(0, login);
 
-    _queryProcessor.AddQuery(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::LogonChallengeCallback, this, std::placeholders::_1)));
+    _queryProcessor.AddCallback(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::LogonChallengeCallback, this, std::placeholders::_1)));
     return true;
 }
 
@@ -430,41 +429,42 @@ void AuthSession::LogonChallengeCallback(PreparedQueryResult result)
     if (AuthHelper::IsAcceptedClientBuild(_build))
     {
         pkt << uint8(WOW_SUCCESS);
+
+        // B may be calculated < 32B so we force minimal length to 32B
+        pkt.append(B.AsByteArray(32).get(), 32);      // 32 bytes
+        pkt << uint8(1);
+        pkt.append(g.AsByteArray(1).get(), 1);
+        pkt << uint8(32);
+        pkt.append(N.AsByteArray(32).get(), 32);
+        pkt.append(s.AsByteArray(int32(BufferSizes::SRP_6_S)).get(), size_t(BufferSizes::SRP_6_S));   // 32 bytes
+        pkt.append(VersionChallenge.data(), VersionChallenge.size());
+        pkt << uint8(securityFlags);            // security flags (0x0...0x04)
+
+        if (securityFlags & 0x01)               // PIN input
+        {
+            pkt << uint32(0);
+            pkt << uint64(0) << uint64(0);      // 16 bytes hash?
+        }
+
+        if (securityFlags & 0x02)               // Matrix input
+        {
+            pkt << uint8(0);
+            pkt << uint8(0);
+            pkt << uint8(0);
+            pkt << uint8(0);
+            pkt << uint64(0);
+        }
+
+        if (securityFlags & 0x04)               // Security token input
+            pkt << uint8(1);
+
+        TC_LOG_DEBUG("server.authserver", "'%s:%d' [AuthChallenge] account %s is using '%s' locale (%u)",
+            ipAddress.c_str(), port, _accountInfo.Login.c_str(), _localizationName.c_str(), GetLocaleByName(_localizationName));
+
         _status = STATUS_LOGON_PROOF;
     }
     else
         pkt << uint8(WOW_FAIL_VERSION_INVALID);
-
-    // B may be calculated < 32B so we force minimal length to 32B
-    pkt.append(B.AsByteArray(32).get(), 32);      // 32 bytes
-    pkt << uint8(1);
-    pkt.append(g.AsByteArray(1).get(), 1);
-    pkt << uint8(32);
-    pkt.append(N.AsByteArray(32).get(), 32);
-    pkt.append(s.AsByteArray(int32(BufferSizes::SRP_6_S)).get(), size_t(BufferSizes::SRP_6_S));   // 32 bytes
-    pkt.append(VersionChallenge.data(), VersionChallenge.size());
-    pkt << uint8(securityFlags);            // security flags (0x0...0x04)
-
-    if (securityFlags & 0x01)               // PIN input
-    {
-        pkt << uint32(0);
-        pkt << uint64(0) << uint64(0);      // 16 bytes hash?
-    }
-
-    if (securityFlags & 0x02)               // Matrix input
-    {
-        pkt << uint8(0);
-        pkt << uint8(0);
-        pkt << uint8(0);
-        pkt << uint8(0);
-        pkt << uint64(0);
-    }
-
-    if (securityFlags & 0x04)               // Security token input
-        pkt << uint8(1);
-
-    TC_LOG_DEBUG("server.authserver", "'%s:%d' [AuthChallenge] account %s is using '%s' locale (%u)",
-        ipAddress.c_str(), port, _accountInfo.Login.c_str(), _localizationName.c_str(), GetLocaleByName(_localizationName));
 
     SendPacket(pkt);
 }
@@ -602,7 +602,7 @@ bool AuthSession::HandleLogonProof()
         // Update the sessionkey, last_ip, last login time and reset number of failed logins in the account table for this account
         // No SQL injection (escaped user name) and IP address as received by socket
 
-        PreparedStatement *stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_LOGONPROOF);
+        LoginDatabasePreparedStatement*stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_LOGONPROOF);
         stmt->setString(0, K.AsHexStr());
         stmt->setString(1, GetRemoteIpAddress().to_string());
         stmt->setUInt32(2, GetLocaleByName(_localizationName));
@@ -660,10 +660,10 @@ bool AuthSession::HandleLogonProof()
         // We can not include the failed account login hook. However, this is a workaround to still log this.
         if (sConfigMgr->GetBoolDefault("WrongPass.Logging", false))
         {
-            PreparedStatement* logstmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_FALP_IP_LOGGING);
+            LoginDatabasePreparedStatement* logstmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_FALP_IP_LOGGING);
             logstmt->setUInt32(0, _accountInfo.Id);
             logstmt->setString(1, GetRemoteIpAddress().to_string());
-            logstmt->setString(2, "Logged on failed AccountLogin due wrong password");
+            logstmt->setString(2, "Login to WoW Failed - Incorrect Password");
 
             LoginDatabase.Execute(logstmt);
         }
@@ -671,7 +671,7 @@ bool AuthSession::HandleLogonProof()
         if (MaxWrongPassCount > 0)
         {
             //Increment number of failed logins by one and if it reaches the limit temporarily ban that account or IP
-            PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_FAILEDLOGINS);
+            LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_FAILEDLOGINS);
             stmt->setString(0, _accountInfo.Login);
             LoginDatabase.Execute(stmt);
 
@@ -733,10 +733,10 @@ bool AuthSession::HandleReconnectChallenge()
         _localizationName[i] = challenge->country[4 - i - 1];
 
     // Get the account details from the account table
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_RECONNECTCHALLENGE);
+    LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_RECONNECTCHALLENGE);
     stmt->setString(0, login);
 
-    _queryProcessor.AddQuery(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::ReconnectChallengeCallback, this, std::placeholders::_1)));
+    _queryProcessor.AddCallback(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::ReconnectChallengeCallback, this, std::placeholders::_1)));
     return true;
 }
 
@@ -817,10 +817,10 @@ bool AuthSession::HandleRealmList()
 {
     TC_LOG_DEBUG("server.authserver", "Entering _HandleRealmList");
 
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_REALM_CHARACTER_COUNTS);
+    LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_REALM_CHARACTER_COUNTS);
     stmt->setUInt32(0, _accountInfo.Id);
 
-    _queryProcessor.AddQuery(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::RealmListCallback, this, std::placeholders::_1)));
+    _queryProcessor.AddCallback(LoginDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&AuthSession::RealmListCallback, this, std::placeholders::_1)));
     _status = STATUS_WAITING_FOR_REALM_LIST;
     return true;
 }
@@ -849,7 +849,7 @@ void AuthSession::RealmListCallback(PreparedQueryResult result)
 
         // No SQL injection. id of realm is controlled by the database.
         uint32 flag = realm.Flags;
-        RealmBuildInfo const* buildInfo = AuthHelper::GetBuildInfo(realm.Build);
+        RealmBuildInfo const* buildInfo = sRealmList->GetBuildInfo(realm.Build);
         if (!okBuild)
         {
             if (!buildInfo)
@@ -948,7 +948,7 @@ void AuthSession::SetVSFields(const std::string& rI)
     v = g.ModExp(x, N);
 
     // No SQL injection (username escaped)
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_VS);
+    LoginDatabasePreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_VS);
     stmt->setString(0, v.AsHexStr());
     stmt->setString(1, s.AsHexStr());
     stmt->setString(2, _accountInfo.Login);
@@ -964,7 +964,7 @@ bool AuthSession::VerifyVersion(uint8 const* a, int32 aLength, uint8 const* vers
     std::array<uint8, 20> const* versionHash = nullptr;
     if (!isReconnect)
     {
-        RealmBuildInfo const* buildInfo = AuthHelper::GetBuildInfo(_build);
+        RealmBuildInfo const* buildInfo = sRealmList->GetBuildInfo(_build);
         if (!buildInfo)
             return false;
 

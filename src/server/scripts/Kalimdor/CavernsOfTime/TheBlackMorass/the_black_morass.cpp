@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -141,21 +140,21 @@ public:
 
         void JustEngagedWith(Unit* /*who*/) override { }
 
-        void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+        void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
         {
             if (SpellCorrupt_Timer)
                 return;
 
-            if (spell->Id == SPELL_CORRUPT_AEONUS)
+            if (spellInfo->Id == SPELL_CORRUPT_AEONUS)
                 SpellCorrupt_Timer = 1000;
 
-            if (spell->Id == SPELL_CORRUPT)
+            if (spellInfo->Id == SPELL_CORRUPT)
                 SpellCorrupt_Timer = 3000;
         }
 
         void JustDied(Unit* killer) override
         {
-            if (killer->GetEntry() == me->GetEntry())
+            if (killer && killer->GetEntry() == me->GetEntry())
                 return;
 
             Talk(SAY_DEATH);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -175,9 +175,9 @@ class boss_sapphiron : public CreatureScript
                 damage = me->GetHealth()-1; // don't die during air phase
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
 
                 me->CastSpell(me, SPELL_FROST_AURA, true);
 
@@ -187,12 +187,16 @@ class boss_sapphiron : public CreatureScript
                 EnterPhaseGround(true);
             }
 
-            void SpellHitTarget(Unit* target, SpellInfo const* spell) override
+            void SpellHitTarget(WorldObject* target, SpellInfo const* spellInfo) override
             {
-                switch(spell->Id)
+                Unit* unitTarget = target->ToUnit();
+                if (!unitTarget)
+                    return;
+
+                switch(spellInfo->Id)
                 {
                     case SPELL_CHECK_RESISTS:
-                        if (target && target->GetResistance(SPELL_SCHOOL_FROST) > MAX_FROST_RESISTANCE)
+                        if (unitTarget->GetResistance(SPELL_SCHOOL_FROST) > MAX_FROST_RESISTANCE)
                             _canTheHundredClub = false;
                         break;
                 }
@@ -259,7 +263,7 @@ class boss_sapphiron : public CreatureScript
                             if (Unit* temp = ObjectAccessor::GetUnit(*me, summonGuid))
                                 blizzards.push_back(temp);
 
-                    if (Unit* newTarget = me->AI()->SelectTarget(SELECT_TARGET_RANDOM, 1, BlizzardTargetSelector(blizzards)))
+                    if (Unit* newTarget = me->AI()->SelectTarget(SelectTargetMethod::Random, 1, BlizzardTargetSelector(blizzards)))
                         return newTarget->GetGUID();
                 }
 
@@ -344,7 +348,7 @@ class boss_sapphiron : public CreatureScript
 
                                 _iceboltTargets.clear();
                                 std::list<Unit*> targets;
-                                SelectTargetList(targets, RAID_MODE(2, 3), SELECT_TARGET_RANDOM, 0, 200.0f, true);
+                                SelectTargetList(targets, RAID_MODE(2, 3), SelectTargetMethod::Random, 0, 200.0f, true);
                                 for (Unit* target : targets)
                                     if (target)
                                         _iceboltTargets.push_back(target->GetGUID());

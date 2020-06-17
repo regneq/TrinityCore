@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -354,9 +354,9 @@ struct boss_razorscale : public BossAI
         }
     }
 
-    void JustEngagedWith(Unit* /*who*/) override
+    void JustEngagedWith(Unit* who) override
     {
-        _JustEngagedWith();
+        BossAI::JustEngagedWith(who);
         instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
         ScheduleAirPhaseEvents();
         summons.DoAction(ACTION_START_FIGHT, DummyEntryCheckPredicate());
@@ -498,9 +498,9 @@ struct boss_razorscale : public BossAI
         }
     }
 
-    void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+    void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
     {
-        if (spell->Id == SPELL_HARPOON_TRIGGER)
+        if (spellInfo->Id == SPELL_HARPOON_TRIGGER)
         {
             _harpoonHitCount++;
             if (_harpoonHitCount == RAID_MODE(2, 4))
@@ -578,12 +578,12 @@ struct boss_razorscale : public BossAI
                     Talk(EMOTE_BERSERK, me);
                     break;
                 case EVENT_FIREBALL:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random))
                         DoCast(target, SPELL_FIREBALL);
                     events.Repeat(Seconds(2), Seconds(3));
                     break;
                 case EVENT_DEVOURING_FLAME:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random))
                         DoCast(target, SPELL_DEVOURING_FLAME);
                     if (_permaGround)
                         events.Repeat(Seconds(10), Seconds(12));
@@ -1452,9 +1452,9 @@ struct npc_razorscale_harpoon_fire_state : public ScriptedAI
 {
     npc_razorscale_harpoon_fire_state(Creature* creature) : ScriptedAI(creature), _instance(creature->GetInstanceScript()) { }
 
-    void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+    void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
     {
-        if (spell->Id == SPELL_FIREBOLT)
+        if (spellInfo->Id == SPELL_FIREBOLT)
         {
             DoCastSelf(SPELL_HARPOON_FIRE_STATE);
             if (Creature* commander = _instance->GetCreature(DATA_EXPEDITION_COMMANDER))

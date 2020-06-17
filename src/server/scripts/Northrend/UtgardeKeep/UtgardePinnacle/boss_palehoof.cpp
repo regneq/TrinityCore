@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -219,9 +219,9 @@ public:
                 _orb = summon->GetGUID();
         }
 
-        void JustEngagedWith (Unit* /*who*/) override
+        void JustEngagedWith(Unit* who) override
         {
-            _JustEngagedWith();
+            BossAI::JustEngagedWith(who);
             Talk(SAY_AGGRO);
             events.ScheduleEvent(EVENT_ARCING_SMASH, 7s);
             events.ScheduleEvent(EVENT_IMPALE, 11s);
@@ -238,7 +238,7 @@ public:
                     events.Repeat(Seconds(7));
                     break;
                 case EVENT_IMPALE:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         DoCast(target, SPELL_IMPALE);
                     events.Repeat(Seconds(10), Seconds(15));
                     break;
@@ -475,7 +475,7 @@ public:
                     events.Repeat(Seconds(19));
                     break;
                 case EVENT_GRIEVOUS_WOUND:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1))
                         DoCast(target, SPELL_GRIEVOUS_WOUND);
                     events.Repeat(Seconds(18));
                     break;
@@ -533,7 +533,7 @@ public:
                     events.Repeat(Seconds(16));
                     break;
                 case EVENT_POISON_BREATH:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         DoCast(target, SPELL_POISON_BREATH);
                     events.Repeat(Seconds(14));
                     break;

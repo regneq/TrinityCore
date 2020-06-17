@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -27,7 +26,6 @@ EndScriptData */
 npc_aeranas
 npc_ancestral_wolf
 npc_wounded_blood_elf
-npc_fel_guard_hound
 EndContentData */
 
 #include "ScriptMgr.h"
@@ -39,6 +37,7 @@ EndContentData */
 #include "Player.h"
 #include "ScriptedEscortAI.h"
 #include "ScriptedGossip.h"
+#include "TemporarySummon.h"
 #include "WorldSession.h"
 
 /*######
@@ -154,15 +153,21 @@ public:
 
     struct npc_ancestral_wolfAI : public EscortAI
     {
-        npc_ancestral_wolfAI(Creature* creature) : EscortAI(creature)
+        npc_ancestral_wolfAI(Creature* creature) : EscortAI(creature) { }
+
+        void InitializeAI() override
         {
-            if (creature->GetOwner() && creature->GetOwner()->GetTypeId() == TYPEID_PLAYER)
-                Start(false, false, creature->GetOwner()->GetGUID());
+            if (me->GetOwner() && me->GetOwner()->GetTypeId() == TYPEID_PLAYER)
+            {
+                EscortAI::Start(false, false, me->GetOwner()->GetGUID());
+
+                me->SetSpeedRate(MOVE_WALK, 1.5f);
+
+                if (TempSummon* tempSummon = me->ToTempSummon())
+                    tempSummon->SetCanFollowOwner(false);
+            }
             else
                 TC_LOG_ERROR("scripts", "TRINITY: npc_ancestral_wolf can not obtain owner or owner is not a player.");
-
-            creature->SetSpeedRate(MOVE_WALK, 1.5f);
-            Reset();
         }
 
         void Reset() override
@@ -189,33 +194,31 @@ public:
                     break;
                 // Move Ryga into position
                 case 48:
-                    if (Creature* ryga = me->FindNearestCreature(NPC_RYGA,70))
+                    if (Creature* ryga = me->FindNearestCreature(NPC_RYGA, 70.0f))
                     {
                         if (ryga->IsAlive() && !ryga->IsInCombat())
                         {
                             ryga->SetWalk(true);
                             ryga->SetSpeedRate(MOVE_WALK, 1.5f);
                             ryga->GetMotionMaster()->MovePoint(0, 517.340698f, 3885.03975f, 190.455978f, true);
-                            Reset();
                         }
                     }
                     break;
                 // Ryga Kneels and welcomes spirit wolf
                 case 50:
-                    if (Creature* ryga = me->FindNearestCreature(NPC_RYGA,70))
+                    if (Creature* ryga = me->FindNearestCreature(NPC_RYGA, 70.0f))
                     {
                         if (ryga->IsAlive() && !ryga->IsInCombat())
                         {
                             ryga->SetFacingTo(0.776773f);
                             ryga->SetStandState(UNIT_STAND_STATE_KNEEL);
                             ryga->AI()->Talk(SAY_WOLF_WELCOME);
-                            Reset();
                         }
                     }
                     break;
                 // Ryga returns to spawn point
                 case 51:
-                    if (Creature* ryga = me->FindNearestCreature(NPC_RYGA,70))
+                    if (Creature* ryga = me->FindNearestCreature(NPC_RYGA, 70.0f))
                     {
                         if (ryga->IsAlive() && !ryga->IsInCombat())
                         {
@@ -224,7 +227,6 @@ public:
                             ryga->SetHomePosition(fRetX, fRetY, fRetZ, fRetO);
                             ryga->SetStandState(UNIT_STAND_STATE_STAND);
                             ryga->GetMotionMaster()->MoveTargetedHome();
-                            Reset();
                         }
                     }
                     break;
@@ -324,118 +326,6 @@ public:
     CreatureAI* GetAI(Creature* creature) const override
     {
         return new npc_wounded_blood_elfAI(creature);
-    }
-};
-
-/*######
-## npc_fel_guard_hound
-######*/
-
-enum FelGuard
-{
-    SPELL_SUMMON_POO     = 37688,
-    SPELL_FAKE_BLOOD     = 37692,
-    NPC_DERANGED_HELBOAR = 16863,
-
-    EVENT_SEARCH_HELBOAR = 1,
-    EVENT_HELBOAR_FOUND  = 2,
-    EVENT_SUMMON_POO     = 3,
-    EVENT_FOLLOW_PLAYER  = 4
-};
-
-class npc_fel_guard_hound : public CreatureScript
-{
-public:
-    npc_fel_guard_hound() : CreatureScript("npc_fel_guard_hound") { }
-
-    struct npc_fel_guard_houndAI : public ScriptedAI
-    {
-        npc_fel_guard_houndAI(Creature* creature) : ScriptedAI(creature)
-        {
-            Initialize();
-        }
-
-        void Initialize()
-        {
-            helboarGUID.Clear();
-            _events.ScheduleEvent(EVENT_SEARCH_HELBOAR, 3s);
-        }
-
-        void Reset() override
-        {
-            Initialize();
-        }
-
-        void MovementInform(uint32 type, uint32 id) override
-        {
-            if (type != POINT_MOTION_TYPE || id != 1)
-                return;
-
-            if (Creature* helboar = ObjectAccessor::GetCreature(*me, helboarGUID))
-            {
-                _events.CancelEvent(EVENT_SEARCH_HELBOAR);
-                me->HandleEmoteCommand(EMOTE_ONESHOT_ATTACK_UNARMED);
-                me->CastSpell(helboar, SPELL_FAKE_BLOOD);
-                _events.ScheduleEvent(EVENT_HELBOAR_FOUND, 2s);
-            }
-        }
-
-        void UpdateAI(uint32 diff) override
-        {
-            _events.Update(diff);
-
-            while (uint32 eventId = _events.ExecuteEvent())
-            {
-                switch (eventId)
-                {
-                    case EVENT_SEARCH_HELBOAR:
-                        if (Creature* helboar = me->FindNearestCreature(NPC_DERANGED_HELBOAR, 10.0f, false))
-                        {
-                            if (helboar->GetGUID() != helboarGUID && me->GetMotionMaster()->GetCurrentMovementGeneratorType() != POINT_MOTION_TYPE && !me->FindCurrentSpellBySpellId(SPELL_SUMMON_POO))
-                            {
-                                helboarGUID = helboar->GetGUID();
-                                me->SetWalk(true);
-                                me->GetMotionMaster()->MovePoint(1, helboar->GetPositionX(), helboar->GetPositionY(), helboar->GetPositionZ());
-                                helboar->DespawnOrUnsummon(Seconds(10));
-                            }
-                        }
-                        _events.Repeat(Seconds(3));
-                        break;
-                    case EVENT_HELBOAR_FOUND:
-                        if (Creature* helboar = ObjectAccessor::GetCreature(*me, helboarGUID))
-                        {
-                            me->HandleEmoteCommand(EMOTE_ONESHOT_ATTACK_UNARMED);
-                            me->CastSpell(helboar, SPELL_FAKE_BLOOD);
-                            _events.ScheduleEvent(EVENT_SUMMON_POO, 1s);
-                        }
-                        break;
-                    case EVENT_SUMMON_POO:
-                        DoCast(SPELL_SUMMON_POO);
-                        _events.ScheduleEvent(EVENT_FOLLOW_PLAYER, 2s);
-                        break;
-                    case EVENT_FOLLOW_PLAYER:
-                        me->SetWalk(false);
-                        if (Player* owner = me->GetCharmerOrOwnerPlayerOrPlayerItself())
-                            me->GetMotionMaster()->MoveFollow(owner, 0.0f, 0.0f);
-                        _events.ScheduleEvent(EVENT_SEARCH_HELBOAR, 3s);
-                        break;
-                }
-            }
-
-            if (!UpdateVictim())
-                return;
-
-            DoMeleeAttackIfReady();
-        }
-
-    private:
-        EventMap _events;
-        ObjectGuid helboarGUID;
-    };
-
-    CreatureAI* GetAI(Creature* creature) const override
-    {
-        return new npc_fel_guard_houndAI(creature);
     }
 };
 
@@ -684,6 +574,7 @@ public:
 
             playerGUID.Clear();
             me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED);
+            me->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
         }
 
         bool GossipSelect(Player* player, uint32 /*menuId*/, uint32 gossipListId) override
@@ -695,6 +586,7 @@ public:
                     player->PlayerTalkClass->SendCloseGossip();
                     me->AI()->Talk(SAY_BARADA_1);
                     me->AI()->DoAction(ACTION_START_EVENT);
+                    me->RemoveFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
                     break;
                 default:
                     break;
@@ -1208,7 +1100,6 @@ void AddSC_hellfire_peninsula()
     new npc_aeranas();
     new npc_ancestral_wolf();
     new npc_wounded_blood_elf();
-    new npc_fel_guard_hound();
     new npc_colonel_jules();
     new npc_barada();
     new npc_magister_aledis();

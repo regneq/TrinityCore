@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -84,7 +83,7 @@ void EscortAI::InitializeAI()
 
     if (me->GetFaction() != me->GetCreatureTemplate()->faction)
         me->RestoreFaction();
-    
+
     Reset();
 }
 
@@ -98,7 +97,7 @@ void EscortAI::EnterEvadeMode(EvadeReason /*why*/)
     me->RemoveAllAuras();
     me->CombatStop(true);
     me->SetLootRecipient(nullptr);
-    
+
     EngagementOver();
 
     if (HasEscortState(STATE_ESCORT_ESCORTING))
@@ -301,7 +300,7 @@ void EscortAI::Start(bool isActiveAttacker /* = true*/, bool run /* = false */, 
     }
 
     _running = run;
-    
+
     if (!_manualPath && resetWaypoints)
         FillPointMovementListForCreature();
 

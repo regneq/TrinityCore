@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -141,7 +140,7 @@ class boss_doomlord_kazzak : public CreatureScript
                             _events.ScheduleEvent(EVENT_VOID_BOLT, 15s, 18s);
                             break;
                         case EVENT_MARK_OF_KAZZAK:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
                                 DoCast(target, SPELL_MARK_OF_KAZZAK);
                             _events.ScheduleEvent(EVENT_MARK_OF_KAZZAK, 20s);
                             break;
@@ -151,7 +150,7 @@ class boss_doomlord_kazzak : public CreatureScript
                             _events.ScheduleEvent(EVENT_ENRAGE, 30s);
                             break;
                         case EVENT_TWISTED_REFLECTION:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
                                 DoCast(target, SPELL_TWISTED_REFLECTION);
                             _events.ScheduleEvent(EVENT_TWISTED_REFLECTION, 15000);
                             break;

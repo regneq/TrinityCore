@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -110,7 +109,7 @@ class boss_ayamiss : public CreatureScript
                         who->GetMotionMaster()->MovePoint(POINT_PARALYZE, AltarPos);
                         break;
                     case NPC_HORNET:
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random))
                             who->AI()->AttackStart(target);
                         break;
                 }
@@ -200,7 +199,7 @@ class boss_ayamiss : public CreatureScript
                             events.ScheduleEvent(EVENT_POISON_STINGER, 2s, 3s);
                             break;
                         case EVENT_PARALYZE:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0, true))
                             {
                                 DoCast(target, SPELL_PARALYZE);
                                 instance->SetGuidData(DATA_PARALYZED, target->GetGUID());
@@ -212,7 +211,7 @@ class boss_ayamiss : public CreatureScript
                         case EVENT_SWARMER_ATTACK:
                             for (GuidList::iterator i = _swarmers.begin(); i != _swarmers.end(); ++i)
                                 if (Creature* swarmer = ObjectAccessor::GetCreature(*me, *i))
-                                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM))
+                                    if (Unit* target = SelectTarget(SelectTargetMethod::Random))
                                         swarmer->AI()->AttackStart(target);
 
                             _swarmers.clear();

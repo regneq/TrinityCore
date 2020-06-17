@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -283,6 +283,8 @@ void SmartAI::UpdateAI(uint32 diff)
 
     CheckConditions(diff);
 
+    bool hasVictim = UpdateVictim();
+
     GetScript()->OnUpdate(diff);
 
     UpdatePath(diff);
@@ -292,7 +294,7 @@ void SmartAI::UpdateAI(uint32 diff)
     if (!IsAIControlled())
         return;
 
-    if (!UpdateVictim())
+    if (!hasVictim)
         return;
 
     if (_canAutoAttack)
@@ -611,24 +613,14 @@ void SmartAI::AttackStart(Unit* who)
     }
 }
 
-void SmartAI::SpellHit(Unit* unit, SpellInfo const* spellInfo)
+void SmartAI::SpellHit(WorldObject* caster, SpellInfo const* spellInfo)
 {
-    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT, unit, 0, 0, false, spellInfo);
+    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT, caster->ToUnit(), 0, 0, false, spellInfo, caster->ToGameObject());
 }
 
-void SmartAI::SpellHitByGameObject(GameObject* object, SpellInfo const* spellInfo)
+void SmartAI::SpellHitTarget(WorldObject* target, SpellInfo const* spellInfo)
 {
-    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT, nullptr, 0, 0, false, spellInfo, object);
-}
-
-void SmartAI::SpellHitTarget(Unit* target, SpellInfo const* spellInfo)
-{
-    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT_TARGET, target, 0, 0, false, spellInfo);
-}
-
-void SmartAI::SpellHitTargetGameObject(GameObject* target, SpellInfo const* spellInfo)
-{
-    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT_TARGET, nullptr, 0, 0, false, spellInfo, target);
+    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT_TARGET, target->ToUnit(), 0, 0, false, spellInfo, target->ToGameObject());
 }
 
 void SmartAI::DamageTaken(Unit* doneBy, uint32& damage)
@@ -688,6 +680,9 @@ void SmartAI::OnCharmed(bool /*isNew*/)
 
     _charmed = charmed;
 
+    if (charmed && !me->isPossessed() && !me->IsVehicle())
+        me->GetMotionMaster()->MoveFollow(me->GetCharmer(), PET_FOLLOW_DIST, me->GetFollowAngle());
+
     if (!charmed && !me->IsInEvadeMode())
     {
         if (_repeatWaypointPath)
@@ -701,6 +696,9 @@ void SmartAI::OnCharmed(bool /*isNew*/)
                 if (Unit* lastCharmer = ObjectAccessor::GetUnit(*me, me->LastCharmerGUID))
                     me->EngageWithTarget(lastCharmer);
             me->LastCharmerGUID.Clear();
+
+            if (!me->IsInCombat())
+                EnterEvadeMode(EVADE_REASON_NO_HOSTILES);
         }
     }
 
@@ -891,8 +889,8 @@ void SmartAI::CheckConditions(uint32 diff)
     {
         if (Vehicle* vehicleKit = me->GetVehicleKit())
         {
-            for (SeatMap::iterator itr = vehicleKit->Seats.begin(); itr != vehicleKit->Seats.end(); ++itr)
-                if (Unit* passenger = ObjectAccessor::GetUnit(*me, itr->second.Passenger.Guid))
+            for (std::pair<int8 const, VehicleSeat>& seat : vehicleKit->Seats)
+                if (Unit* passenger = ObjectAccessor::GetUnit(*me, seat.second.Passenger.Guid))
                 {
                     if (Player* player = passenger->ToPlayer())
                     {
@@ -1092,9 +1090,9 @@ void SmartGameObjectAI::EventInform(uint32 eventId)
     GetScript()->ProcessEventsFor(SMART_EVENT_GO_EVENT_INFORM, nullptr, eventId);
 }
 
-void SmartGameObjectAI::SpellHit(Unit* unit, SpellInfo const* spellInfo)
+void SmartGameObjectAI::SpellHit(WorldObject* caster, SpellInfo const* spellInfo)
 {
-    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT, unit, 0, 0, false, spellInfo);
+    GetScript()->ProcessEventsFor(SMART_EVENT_SPELLHIT, caster->ToUnit(), 0, 0, false, spellInfo);
 }
 
 void SmartGameObjectAI::JustSummoned(Creature* creature)

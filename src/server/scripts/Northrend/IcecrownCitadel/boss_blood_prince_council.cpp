@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -91,7 +91,7 @@ enum Spells
     SPELL_CONJURE_EMPOWERED_FLAME       = 72040,
 
     // Ball of Flame
-    SPELL_FLAME_SPHERE_SPAWN_EFFECT     = 55891, // cast from creature_template_addon (needed cast before entering world)
+    SPELL_FLAME_SPHERE_SPAWN_EFFECT     = 55891,
     SPELL_BALL_OF_FLAMES_VISUAL         = 71706,
     SPELL_BALL_OF_FLAMES                = 71714,
     SPELL_FLAMES                        = 71393,
@@ -545,9 +545,9 @@ struct BloodPrincesBossAI : public BossAI
         }
     }
 
-    void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+    void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
     {
-        if (spell->Id == SelectInvocationSpell())
+        if (spellInfo->Id == SelectInvocationSpell())
             DoAction(ACTION_CAST_INVOCATION);
     }
 
@@ -723,9 +723,9 @@ class boss_prince_taldaram_icc : public CreatureScript
             void JustSummoned(Creature* summon) override
             {
                 summons.Summon(summon);
-                Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, -10.0f, true); // first try at distance
+                Unit* target = SelectTarget(SelectTargetMethod::Random, 1, -10.0f, true); // first try at distance
                 if (!target)
-                    target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true);     // too bad for you raiders, its going to boom
+                    target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true);     // too bad for you raiders, its going to boom
 
                 if (summon->GetEntry() == NPC_BALL_OF_INFERNO_FLAME && target)
                     Talk(EMOTE_TALDARAM_FLAME, target);
@@ -854,7 +854,7 @@ class boss_prince_valanar_icc : public CreatureScript
                             Talk(SAY_VALANAR_BERSERK);
                             break;
                         case EVENT_KINETIC_BOMB:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 0.0f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1, 0.0f, true))
                             {
                                 DoCast(target, SPELL_KINETIC_BOMB_TARGET);
                                 Talk(SAY_VALANAR_SPECIAL);
@@ -870,7 +870,7 @@ class boss_prince_valanar_icc : public CreatureScript
                             }
                             else
                             {
-                                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 0.0f, true))
+                                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1, 0.0f, true))
                                     DoCast(target, SPELL_SHOCK_VORTEX);
                                 events.Repeat(Seconds(18), Seconds(23));
                             }
@@ -976,6 +976,7 @@ class npc_ball_of_flame : public CreatureScript
 
             void Reset() override
             {
+                DoCastSelf(SPELL_FLAME_SPHERE_SPAWN_EFFECT, true);
                 DoCastSelf(SPELL_BALL_OF_FLAMES_VISUAL, true);
                 if (me->GetEntry() == NPC_BALL_OF_INFERNO_FLAME)
                 {
@@ -1410,15 +1411,18 @@ class spell_valanar_kinetic_bomb_knockback : public SpellScriptLoader
         {
             PrepareSpellScript(spell_valanar_kinetic_bomb_knockback_SpellScript);
 
-            void KnockIntoAir()
+            void KnockIntoAir(SpellMissInfo missInfo)
             {
+                if (missInfo != SPELL_MISS_NONE)
+                    return;
+
                 if (Creature* target = GetHitCreature())
                     target->AI()->DoAction(ACTION_KINETIC_BOMB_JUMP);
             }
 
             void Register() override
             {
-                BeforeHit += SpellHitFn(spell_valanar_kinetic_bomb_knockback_SpellScript::KnockIntoAir);
+                BeforeHit += BeforeSpellHitFn(spell_valanar_kinetic_bomb_knockback_SpellScript::KnockIntoAir);
             }
         };
 

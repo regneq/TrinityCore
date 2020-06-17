@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -70,10 +70,10 @@ class boss_salramm : public CreatureScript
                     me->RemoveLootMode(LOOT_MODE_DEFAULT);
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
                 Talk(SAY_AGGRO);
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
 
                 events.ScheduleEvent(EVENT_SUMMON_GHOULS, randtime(Seconds(19),Seconds(24)));
                 events.ScheduleEvent(EVENT_SHADOW_BOLT, Seconds(2));
@@ -97,13 +97,13 @@ class boss_salramm : public CreatureScript
                         events.ScheduleEvent(EVENT_EXPLODE_GHOUL2, Seconds(25), Seconds(29));
                         break;
                     case EVENT_SHADOW_BOLT:
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 40.0f, true))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 40.0f, true))
                             DoCast(target, SPELL_SHADOW_BOLT);
                         events.Repeat(Seconds(3));
                         break;
                     case EVENT_STEAL_FLESH:
                         Talk(SAY_STEAL_FLESH);
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1, 50.0f, true))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1, 50.0f, true))
                             DoCast(target, SPELL_STEAL_FLESH);
                         events.Repeat(Seconds(15), Seconds(20));
                         break;

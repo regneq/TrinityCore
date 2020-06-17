@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1407,9 +1407,9 @@ public:
             current = candidate;
         }
 
-        void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+        void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
         {
-            if (!_crateRevealed && spell->Id == SPELL_ARCANE_DISRUPTION)
+            if (!_crateRevealed && spellInfo->Id == SPELL_ARCANE_DISRUPTION)
             {
                 _crateRevealed = true;
                 if (InstanceScript* instance = me->GetInstanceScript())

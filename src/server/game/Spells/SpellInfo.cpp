@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1346,7 +1346,7 @@ bool SpellInfo::CanPierceImmuneAura(SpellInfo const* auraSpellInfo) const
         // ...but not these (Divine shield, Ice block, Cyclone and Banish for example)
         if (auraSpellInfo->Mechanic != MECHANIC_IMMUNE_SHIELD &&
                auraSpellInfo->Mechanic != MECHANIC_INVULNERABILITY &&
-               (auraSpellInfo->Mechanic != MECHANIC_BANISH || (IsRankOf(auraSpellInfo) && auraSpellInfo->Dispel != DISPEL_NONE))) // Banish shouldn't be immune to itself, but Cyclone should
+               auraSpellInfo->Mechanic != MECHANIC_BANISH)
             return true;
     }
 
@@ -2270,6 +2270,9 @@ void SpellInfo::_LoadSpellDiminishInfo()
                 // Screams of the Dead (King Ymiron)
                 else if (Id == 51750)
                     return DIMINISHING_NONE;
+                // Crystallize (Keristrasza heroic)
+                else if (Id == 48179)
+                    return DIMINISHING_NONE;
                 break;
             }
             // Event spells
@@ -3117,7 +3120,7 @@ uint32 SpellInfo::GetMaxTicks() const
                 case SPELL_AURA_PERIODIC_HEAL:
                 case SPELL_AURA_OBS_MOD_HEALTH:
                 case SPELL_AURA_OBS_MOD_POWER:
-                case SPELL_AURA_48:
+                case SPELL_AURA_PERIODIC_TRIGGER_SPELL_FROM_CLIENT:
                 case SPELL_AURA_POWER_BURN:
                 case SPELL_AURA_PERIODIC_LEECH:
                 case SPELL_AURA_PERIODIC_MANA_LEECH:
@@ -3412,6 +3415,7 @@ bool _isPositiveEffectImpl(SpellInfo const* spellInfo, uint8 effIndex, std::unor
                 case 61716: // Rabbit Costume
                 case 61734: // Noblegarden Bunny
                 case 62344: // Fists of Stone
+                case 50344: // Dream Funnel
                 case 61819: // Manabonked! (item)
                 case 61834: // Manabonked! (minigob)
                     return true;
@@ -3492,7 +3496,6 @@ bool _isPositiveEffectImpl(SpellInfo const* spellInfo, uint8 effIndex, std::unor
             case SPELL_EFFECT_LEARN_SPELL:
             case SPELL_EFFECT_SKILL_STEP:
             case SPELL_EFFECT_HEAL_PCT:
-            case SPELL_EFFECT_ENERGIZE_PCT:
                 return true;
             case SPELL_EFFECT_INSTAKILL:
                 if (i != effIndex && // for spells like 38044: instakill effect is negative but auras on target must count as buff
@@ -3659,6 +3662,7 @@ bool _isPositiveEffectImpl(SpellInfo const* spellInfo, uint8 effIndex, std::unor
             case SPELL_AURA_ADD_TARGET_TRIGGER:
                 return true;
             case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
+            case SPELL_AURA_PERIODIC_TRIGGER_SPELL_FROM_CLIENT:
             case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
                 if (!_isPositiveTarget(spellInfo, effIndex))
                 {

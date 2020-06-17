@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -23,6 +22,7 @@
 #include "Group.h"
 #include "GroupMgr.h"
 #include "Log.h"
+#include "MiscPackets.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Pet.h"
@@ -230,7 +230,7 @@ void WorldSession::HandleGroupAcceptOpcode(WorldPacket& recvData)
 
     if (group->GetLeaderGUID() == GetPlayer()->GetGUID())
     {
-        TC_LOG_ERROR("network", "HandleGroupAcceptOpcode: player %s(%d) tried to accept an invite to his own group", GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().GetCounter());
+        TC_LOG_ERROR("network", "HandleGroupAcceptOpcode: player %s %s tried to accept an invite to his own group", GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().ToString().c_str());
         return;
     }
 
@@ -302,8 +302,8 @@ void WorldSession::HandleGroupUninviteGuidOpcode(WorldPacket& recvData)
     //can't uninvite yourself
     if (guid == GetPlayer()->GetGUID())
     {
-        TC_LOG_ERROR("network", "WorldSession::HandleGroupUninviteGuidOpcode: leader %s(%d) tried to uninvite himself from the group.",
-            GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().GetCounter());
+        TC_LOG_ERROR("network", "WorldSession::HandleGroupUninviteGuidOpcode: leader %s %s tried to uninvite himself from the group.",
+            GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().ToString().c_str());
         return;
     }
 
@@ -347,8 +347,8 @@ void WorldSession::HandleGroupUninviteOpcode(WorldPacket& recvData)
     // can't uninvite yourself
     if (GetPlayer()->GetName() == membername)
     {
-        TC_LOG_ERROR("network", "WorldSession::HandleGroupUninviteOpcode: leader %s(%d) tried to uninvite himself from the group.",
-            GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().GetCounter());
+        TC_LOG_ERROR("network", "WorldSession::HandleGroupUninviteOpcode: leader %s %s tried to uninvite himself from the group.",
+            GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().ToString().c_str());
         return;
     }
 
@@ -517,11 +517,11 @@ void WorldSession::HandleMinimapPingOpcode(WorldPacket& recvData)
     GetPlayer()->GetGroup()->BroadcastPacket(&data, true, -1, GetPlayer()->GetGUID());
 }
 
-void WorldSession::HandleRandomRollOpcode(WorldPacket& recvData)
+void WorldSession::HandleRandomRollOpcode(WorldPackets::Misc::RandomRollClient& packet)
 {
     uint32 minimum, maximum;
-    recvData >> minimum;
-    recvData >> maximum;
+    minimum = packet.Min;
+    maximum = packet.Max;
 
     /** error handling **/
     if (minimum > maximum || maximum > 10000)                // < 32768 for urand call

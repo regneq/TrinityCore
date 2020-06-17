@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -96,9 +96,9 @@ class boss_jeklik : public CreatureScript
                 Talk(SAY_DEATH);
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 Talk(SAY_AGGRO);
                 events.SetPhase(PHASE_ONE);
 
@@ -142,7 +142,7 @@ class boss_jeklik : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_CHARGE_JEKLIK:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.f, true))
                             {
                                 DoCast(target, SPELL_CHARGE);
                                 AttackStart(target);
@@ -158,14 +158,14 @@ class boss_jeklik : public CreatureScript
                             events.ScheduleEvent(EVENT_SCREECH, urand(18000, 26000), 0, PHASE_ONE);
                             break;
                         case EVENT_SPAWN_BATS:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.f, true))
                                 for (uint8 i = 0; i < 6; ++i)
                                     if (TempSummon* bat = me->SummonCreature(NPC_BLOODSEEKER_BAT, SpawnBat[i], TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 15000))
                                         bat->AI()->AttackStart(target);
                             events.ScheduleEvent(EVENT_SPAWN_BATS, 1min, 0, PHASE_ONE);
                             break;
                         case EVENT_SHADOW_WORD_PAIN:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.f, true))
                                 DoCast(target, SPELL_SHADOW_WORD_PAIN);
                             events.ScheduleEvent(EVENT_SHADOW_WORD_PAIN, urand(12000, 18000), 0, PHASE_TWO);
                             break;
@@ -184,7 +184,7 @@ class boss_jeklik : public CreatureScript
                             events.ScheduleEvent(EVENT_GREATER_HEAL, urand(25000, 35000), 0, PHASE_TWO);
                             break;
                         case EVENT_SPAWN_FLYING_BATS:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.f, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.f, true))
                                 if (TempSummon* flyingBat = me->SummonCreature(NPC_FRENZIED_BAT, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ() + 15.0f, 0.0f, TEMPSUMMON_TIMED_DESPAWN_OUT_OF_COMBAT, 15000))
                                     flyingBat->AI()->AttackStart(target);
                             events.ScheduleEvent(EVENT_SPAWN_FLYING_BATS, urand(10000, 15000), 0, PHASE_TWO);
@@ -240,7 +240,7 @@ class npc_batrider : public CreatureScript
 
                 if (_bombTimer <= diff)
                 {
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.f, true))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.f, true))
                     {
                         DoCast(target, SPELL_BOMB);
                         _bombTimer = 5000;

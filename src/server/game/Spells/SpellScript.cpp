@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -199,6 +199,16 @@ SpellCastResult SpellScript::CheckCastHandler::Call(SpellScript* spellScript)
     return (spellScript->*_checkCastHandlerScript)();
 }
 
+SpellScript::OnCalculateResistAbsorbHandler::OnCalculateResistAbsorbHandler(SpellOnResistAbsorbCalculateFnType onResistAbsorbCalculateHandlerScript)
+{
+    pOnCalculateResistAbsorbHandlerScript = onResistAbsorbCalculateHandlerScript;
+}
+
+void SpellScript::OnCalculateResistAbsorbHandler::Call(SpellScript* spellScript, DamageInfo const& damageInfo, uint32& resistAmount, int32& absorbAmount)
+{
+    return (spellScript->*pOnCalculateResistAbsorbHandlerScript)(damageInfo, resistAmount, absorbAmount);
+}
+
 SpellScript::EffectHandler::EffectHandler(SpellEffectFnType _pEffectHandlerScript, uint8 _effIndex, uint16 _effName)
     : _SpellScript::EffectNameCheck(_effName), _SpellScript::EffectHook(_effIndex)
 {
@@ -218,6 +228,16 @@ bool SpellScript::EffectHandler::CheckEffect(SpellInfo const* spellEntry, uint8 
 void SpellScript::EffectHandler::Call(SpellScript* spellScript, SpellEffIndex effIndexToHandle)
 {
     (spellScript->*pEffectHandlerScript)(effIndexToHandle);
+}
+
+SpellScript::BeforeHitHandler::BeforeHitHandler(SpellBeforeHitFnType pBeforeHitHandlerScript)
+{
+    _pBeforeHitHandlerScript = pBeforeHitHandlerScript;
+}
+
+void SpellScript::BeforeHitHandler::Call(SpellScript* spellScript, SpellMissInfo missInfo)
+{
+    (spellScript->*_pBeforeHitHandlerScript)(missInfo);
 }
 
 SpellScript::HitHandler::HitHandler(SpellHitFnType _pHitHandlerScript)

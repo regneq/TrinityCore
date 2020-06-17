@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -450,7 +450,7 @@ private:
     Unit* _owner;
 };
 
-class ChargeTargetSelector : public std::unary_function<Unit*, bool>
+class ChargeTargetSelector
 {
 public:
     ChargeTargetSelector() { }
@@ -487,9 +487,9 @@ struct boss_illidan_stormrage : public BossAI
                 akama->AI()->DoAction(ACTION_ACTIVE_AKAMA_INTRO);
     }
 
-    void JustEngagedWith(Unit* /*who*/) override
+    void JustEngagedWith(Unit* who) override
     {
-        _JustEngagedWith();
+        BossAI::JustEngagedWith(who);
         me->SetCanDualWield(true);
         if (GameObject* musicController = instance->GetGameObject(DATA_ILLIDAN_MUSIC_CONTROLLER))
             musicController->PlayDirectMusic(EVENT_BT_SUMMIT_WALK_3_SOUND_ID);
@@ -837,7 +837,7 @@ struct boss_illidan_stormrage : public BossAI
                     events.Repeat(Seconds(12));
                     break;
                 case EVENT_PARASITIC_SHADOWFIEND:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
                         DoCast(target, SPELL_PARASITIC_SHADOWFIEND);
                     events.Repeat(Seconds(30));
                     break;
@@ -912,7 +912,7 @@ struct boss_illidan_stormrage : public BossAI
                 }
                 case EVENT_DARK_BARRAGE:
                 {
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 150.0f, true))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 150.0f, true))
                         DoCast(target, SPELL_DARK_BARRAGE);
                     events.RescheduleEvent(EVENT_EYE_BLAST, Seconds(5), GROUP_PHASE_2);
                     uint32 currentTime = events.GetNextEventTime(EVENT_FLY_TO_RANDOM_PILLAR);
@@ -920,7 +920,7 @@ struct boss_illidan_stormrage : public BossAI
                     break;
                 }
                 case EVENT_FIREBALL:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 150.0f, true))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 150.0f, true))
                         DoCast(target, SPELL_FIREBALL);
                     events.Repeat(Seconds(2), Seconds(4));
                     break;
@@ -1510,7 +1510,7 @@ struct npc_flame_of_azzinoth : public ScriptedAI
                     _events.ScheduleEvent(EVENT_FLAME_CHARGE, 5s);
                     break;
                 case EVENT_FLAME_CHARGE:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, ChargeTargetSelector()))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, ChargeTargetSelector()))
                     {
                         DoCast(target, SPELL_CHARGE);
                         _events.Repeat(Seconds(5));

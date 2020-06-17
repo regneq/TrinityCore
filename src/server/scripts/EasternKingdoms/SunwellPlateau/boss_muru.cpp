@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -276,9 +276,9 @@ public:
             });
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void JustEngagedWith(Unit* who) override
         {
-            _JustEngagedWith();
+            BossAI::JustEngagedWith(who);
             DoCast(me, SPELL_OPEN_PORTAL_PERIODIC, true);
             DoCast(me, SPELL_DARKNESS_PERIODIC, true);
             DoCast(me, SPELL_NEGATIVE_ENERGY_PERIODIC, true);
@@ -353,9 +353,9 @@ public:
             summon->m_Events.AddEvent(new VoidSpawnSummon(summon), summon->m_Events.CalculateTime(1500));
         }
 
-        void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+        void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
         {
-            switch (spell->Id)
+            switch (spellInfo->Id)
             {
                 case SPELL_OPEN_ALL_PORTALS:
                     DoCastAOE(SPELL_OPEN_PORTAL, true);
@@ -412,7 +412,7 @@ public:
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
 
                 if (Creature* _summoner = ObjectAccessor::GetCreature(*me, _summonerGUID))
-                    if (Unit* target = _summoner->AI()->SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = _summoner->AI()->SelectTarget(SelectTargetMethod::Random, 0))
                         AttackStart(target);
             });
 

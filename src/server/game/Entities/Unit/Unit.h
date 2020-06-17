@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -97,7 +96,7 @@ enum MovementGeneratorType : uint8;
 
 typedef std::list<Unit*> UnitList;
 
-class DispelableAura
+class TC_GAME_API DispelableAura
 {
     public:
         DispelableAura(Aura* aura, int32 dispelChance, uint8 dispelCharges);
@@ -210,44 +209,46 @@ enum DeathState
 
 enum UnitState : uint32
 {
-    UNIT_STATE_DIED                = 0x00000001,                     // player has fake death aura
-    UNIT_STATE_MELEE_ATTACKING     = 0x00000002,                     // player is melee attacking someone
-    UNIT_STATE_CHARMED             = 0x00000004,                     // having any kind of charm aura on self
-    UNIT_STATE_STUNNED             = 0x00000008,
-    UNIT_STATE_ROAMING             = 0x00000010,
-    UNIT_STATE_CHASE               = 0x00000020,
-    UNIT_STATE_FOCUSING            = 0x00000040,
-    UNIT_STATE_FLEEING             = 0x00000080,
-    UNIT_STATE_IN_FLIGHT           = 0x00000100,                     // player is in flight mode
-    UNIT_STATE_FOLLOW              = 0x00000200,
-    UNIT_STATE_ROOT                = 0x00000400,
-    UNIT_STATE_CONFUSED            = 0x00000800,
-    UNIT_STATE_DISTRACTED          = 0x00001000,
-    UNIT_STATE_ISOLATED            = 0x00002000,                     // area auras do not affect other players
-    UNIT_STATE_ATTACK_PLAYER       = 0x00004000,
-    UNIT_STATE_CASTING             = 0x00008000,
-    UNIT_STATE_POSSESSED           = 0x00010000,                     // being possessed by another unit
-    UNIT_STATE_CHARGING            = 0x00020000,
-    UNIT_STATE_JUMPING             = 0x00040000,
-    UNIT_STATE_MOVE                = 0x00100000,
-    UNIT_STATE_ROTATING            = 0x00200000,
-    UNIT_STATE_EVADE               = 0x00400000,
-    UNIT_STATE_ROAMING_MOVE        = 0x00800000,
-    UNIT_STATE_CONFUSED_MOVE       = 0x01000000,
-    UNIT_STATE_FLEEING_MOVE        = 0x02000000,
-    UNIT_STATE_CHASE_MOVE          = 0x04000000,
-    UNIT_STATE_FOLLOW_MOVE         = 0x08000000,
-    UNIT_STATE_IGNORE_PATHFINDING  = 0x10000000,                 // do not use pathfinding in any MovementGenerator
+    UNIT_STATE_DIED                  = 0x00000001, // player has fake death aura
+    UNIT_STATE_MELEE_ATTACKING       = 0x00000002, // player is melee attacking someone
+    UNIT_STATE_CHARMED               = 0x00000004, // having any kind of charm aura on self
+    UNIT_STATE_STUNNED               = 0x00000008,
+    UNIT_STATE_ROAMING               = 0x00000010,
+    UNIT_STATE_CHASE                 = 0x00000020,
+    UNIT_STATE_FOCUSING              = 0x00000040,
+    UNIT_STATE_FLEEING               = 0x00000080,
+    UNIT_STATE_IN_FLIGHT             = 0x00000100, // player is in flight mode
+    UNIT_STATE_FOLLOW                = 0x00000200,
+    UNIT_STATE_ROOT                  = 0x00000400,
+    UNIT_STATE_CONFUSED              = 0x00000800,
+    UNIT_STATE_DISTRACTED            = 0x00001000,
+    UNIT_STATE_ISOLATED              = 0x00002000, // area auras do not affect other players
+    UNIT_STATE_ATTACK_PLAYER         = 0x00004000,
+    UNIT_STATE_CASTING               = 0x00008000,
+    UNIT_STATE_POSSESSED             = 0x00010000, // being possessed by another unit
+    UNIT_STATE_CHARGING              = 0x00020000,
+    UNIT_STATE_JUMPING               = 0x00040000,
+    UNIT_STATE_FOLLOW_FORMATION      = 0x00080000,
+    UNIT_STATE_MOVE                  = 0x00100000,
+    UNIT_STATE_ROTATING              = 0x00200000,
+    UNIT_STATE_EVADE                 = 0x00400000,
+    UNIT_STATE_ROAMING_MOVE          = 0x00800000,
+    UNIT_STATE_CONFUSED_MOVE         = 0x01000000,
+    UNIT_STATE_FLEEING_MOVE          = 0x02000000,
+    UNIT_STATE_CHASE_MOVE            = 0x04000000,
+    UNIT_STATE_FOLLOW_MOVE           = 0x08000000,
+    UNIT_STATE_IGNORE_PATHFINDING    = 0x10000000, // do not use pathfinding in any MovementGenerator
+    UNIT_STATE_FOLLOW_FORMATION_MOVE = 0x20000000,
 
     UNIT_STATE_ALL_STATE_SUPPORTED = UNIT_STATE_DIED | UNIT_STATE_MELEE_ATTACKING | UNIT_STATE_CHARMED | UNIT_STATE_STUNNED | UNIT_STATE_ROAMING | UNIT_STATE_CHASE
                                    | UNIT_STATE_FOCUSING | UNIT_STATE_FLEEING | UNIT_STATE_IN_FLIGHT | UNIT_STATE_FOLLOW | UNIT_STATE_ROOT | UNIT_STATE_CONFUSED
                                    | UNIT_STATE_DISTRACTED | UNIT_STATE_ISOLATED | UNIT_STATE_ATTACK_PLAYER | UNIT_STATE_CASTING
                                    | UNIT_STATE_POSSESSED | UNIT_STATE_CHARGING | UNIT_STATE_JUMPING | UNIT_STATE_MOVE | UNIT_STATE_ROTATING
                                    | UNIT_STATE_EVADE | UNIT_STATE_ROAMING_MOVE | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE
-                                   | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE | UNIT_STATE_IGNORE_PATHFINDING,
+                                   | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE | UNIT_STATE_IGNORE_PATHFINDING | UNIT_STATE_FOLLOW_FORMATION_MOVE,
 
     UNIT_STATE_UNATTACKABLE        = UNIT_STATE_IN_FLIGHT,
-    UNIT_STATE_MOVING              = UNIT_STATE_ROAMING_MOVE | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE,
+    UNIT_STATE_MOVING              = UNIT_STATE_ROAMING_MOVE | UNIT_STATE_CONFUSED_MOVE | UNIT_STATE_FLEEING_MOVE | UNIT_STATE_CHASE_MOVE | UNIT_STATE_FOLLOW_MOVE | UNIT_STATE_FOLLOW_FORMATION_MOVE,
     UNIT_STATE_CONTROLLED          = UNIT_STATE_CONFUSED | UNIT_STATE_STUNNED | UNIT_STATE_FLEEING,
     UNIT_STATE_LOST_CONTROL        = UNIT_STATE_CONTROLLED | UNIT_STATE_POSSESSED | UNIT_STATE_JUMPING | UNIT_STATE_CHARGING,
     UNIT_STATE_CANNOT_AUTOATTACK   = UNIT_STATE_CONTROLLED | UNIT_STATE_CHARGING | UNIT_STATE_CASTING,
@@ -715,6 +716,18 @@ enum ReactiveType
     MAX_REACTIVE
 };
 
+struct PositionUpdateInfo
+{
+    void Reset()
+    {
+        Relocated = false;
+        Turned = false;
+    }
+
+    bool Relocated = false;
+    bool Turned = false;
+};
+
 // delay time next attack to prevent client attack animation problems
 #define ATTACK_DISPLAY_DELAY 200
 #define MAX_PLAYER_STEALTH_DETECT_RANGE 30.0f               // max distance for detection targets by player
@@ -936,14 +949,14 @@ class TC_GAME_API Unit : public WorldObject
                                      DamageInfo* damageInfo, HealInfo* healInfo);
         void TriggerAurasProcOnEvent(ProcEventInfo& eventInfo, AuraApplicationProcContainer& procAuras);
 
-        void HandleEmoteCommand(uint32 anim_id);
+        void HandleEmoteCommand(uint32 emoteId);
         void AttackerStateUpdate (Unit* victim, WeaponAttackType attType = BASE_ATTACK, bool extra = false);
 
         void CalculateMeleeDamage(Unit* victim, CalcDamageInfo* damageInfo, WeaponAttackType attackType = BASE_ATTACK);
         void DealMeleeDamage(CalcDamageInfo* damageInfo, bool durabilityLoss);
         void HandleProcExtraAttackFor(Unit* victim);
 
-        void CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 damage, SpellInfo const* spellInfo, WeaponAttackType attackType = BASE_ATTACK, bool crit = false);
+        void CalculateSpellDamageTaken(SpellNonMeleeDamage* damageInfo, int32 damage, SpellInfo const* spellInfo, WeaponAttackType attackType = BASE_ATTACK, bool crit = false, Spell* spell = nullptr);
         void DealSpellDamage(SpellNonMeleeDamage* damageInfo, bool durabilityLoss);
 
         // player or player's pet resilience (-1%)
@@ -1062,7 +1075,7 @@ class TC_GAME_API Unit : public WorldObject
         bool isTargetableForAttack(bool checkFakeDeath = true) const;
 
         virtual bool IsInWater() const;
-        virtual bool IsUnderWater() const;
+        bool IsUnderWater() const;
         bool isInAccessiblePlaceFor(Creature const* c) const;
 
         void SendHealSpellLog(HealInfo& healInfo, bool critical = false);
@@ -1097,7 +1110,7 @@ class TC_GAME_API Unit : public WorldObject
         void UpdateHeight(float newZ);
 
         void KnockbackFrom(float x, float y, float speedXY, float speedZ);
-        void JumpTo(float speedXY, float speedZ, bool forward = true);
+        void JumpTo(float speedXY, float speedZ, bool forward = true, Optional<Position> dest = {});
         void JumpTo(WorldObject* obj, float speedZ, bool withOrientation = false);
 
         void MonsterMoveWithSpeed(float x, float y, float z, float speed, bool generatePath = false, bool forceDestination = false);
@@ -1105,7 +1118,7 @@ class TC_GAME_API Unit : public WorldObject
         //void SendMonsterMove(float NewPosX, float NewPosY, float NewPosZ, uint8 type, uint32 MovementFlags, uint32 Time, Player* player = nullptr);
         void SendMovementFlagUpdate(bool self = false);
 
-        bool IsLevitating() const { return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_DISABLE_GRAVITY); }
+        bool IsGravityDisabled() const { return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_DISABLE_GRAVITY); }
         bool IsWalking() const { return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_WALKING); }
         bool IsHovering() const { return m_movementInfo.HasMovementFlag(MOVEMENTFLAG_HOVER); }
         virtual bool SetWalk(bool enable);
@@ -1290,6 +1303,7 @@ class TC_GAME_API Unit : public WorldObject
         bool HasAuraTypeWithMiscvalue(AuraType auraType, int32 miscValue) const;
         bool HasAuraTypeWithAffectMask(AuraType auraType, SpellInfo const* affectedSpell) const;
         bool HasAuraTypeWithValue(AuraType auraType, int32 value) const;
+        bool HasAuraTypeWithTriggerSpell(AuraType auratype, uint32 triggerSpell) const;
         bool HasNegativeAuraWithInterruptFlag(uint32 flag, ObjectGuid guid = ObjectGuid::Empty) const;
         bool HasAuraWithMechanic(uint32 mechanicMask) const;
         bool HasStrongerAuraWithDR(SpellInfo const* auraSpellInfo, Unit* caster, bool triggered) const;
@@ -1447,6 +1461,8 @@ class TC_GAME_API Unit : public WorldObject
         void AddInterruptMask(uint32 mask) { m_interruptMask |= mask; }
         void UpdateInterruptMask();
 
+        virtual float GetNativeObjectScale() const { return 1.0f; }
+        virtual void RecalculateObjectScale();
         uint32 GetDisplayId() const { return GetUInt32Value(UNIT_FIELD_DISPLAYID); }
         virtual void SetDisplayId(uint32 modelId);
         uint32 GetNativeDisplayId() const { return GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID); }
@@ -1513,7 +1529,7 @@ class TC_GAME_API Unit : public WorldObject
         static bool IsDamageReducedByArmor(SpellSchoolMask damageSchoolMask, SpellInfo const* spellInfo = nullptr);
         static uint32 CalcArmorReducedDamage(Unit const* attacker, Unit* victim, uint32 damage, SpellInfo const* spellInfo, WeaponAttackType attackType = MAX_ATTACK, uint8 attackerLevel = 0);
         static uint32 CalcSpellResistedDamage(Unit const* attacker, Unit* victim, uint32 damage, SpellSchoolMask schoolMask, SpellInfo const* spellInfo);
-        static void CalcAbsorbResist(DamageInfo& damageInfo);
+        static void CalcAbsorbResist(DamageInfo& damageInfo, Spell* spell = nullptr);
         static void CalcHealAbsorb(HealInfo& healInfo);
 
         void UpdateSpeed(UnitMoveType mtype);
@@ -1656,6 +1672,7 @@ class TC_GAME_API Unit : public WorldObject
 
         int32 GetHighestExclusiveSameEffectSpellGroupValue(AuraEffect const* aurEff, AuraType auraType, bool checkMiscValue = false, int32 miscValue = 0) const;
         bool IsHighestExclusiveAura(Aura const* aura, bool removeOtherAuraApplications = false);
+        bool IsHighestExclusiveAuraEffect(SpellInfo const* spellInfo, AuraType auraType, int32 effectAmount, uint8 auraEffectMask, bool removeOtherAuraApplications = false);
 
         virtual void Talk(std::string const& text, ChatMsg msgType, Language language, float textRange, WorldObject const* target);
         virtual void Say(std::string const& text, Language language, WorldObject const* target = nullptr);
@@ -1763,12 +1780,15 @@ class TC_GAME_API Unit : public WorldObject
 
         void UpdateSplineMovement(uint32 t_diff);
         void UpdateSplinePosition();
+        void InterruptMovementBasedAuras();
 
         // player or player's pet
         float GetCombatRatingReduction(CombatRating cr) const;
         uint32 GetCombatRatingDamageReduction(CombatRating cr, float rate, float cap, uint32 damage) const;
 
         void ProcSkillsAndReactives(bool isVictim, Unit* procTarget, uint32 typeMask, uint32 hitMask, WeaponAttackType attType);
+
+    protected:
 
         void SetFeared(bool apply);
         void SetConfused(bool apply);
@@ -1777,9 +1797,11 @@ class TC_GAME_API Unit : public WorldObject
 
         uint32 m_rootTimes;
 
+    private:
+
         uint32 m_state;                                     // Even derived shouldn't modify
         uint32 m_lastManaUse;                               // msecs
-        TimeTrackerSmall m_movesplineTimer;
+        TimeTrackerSmall m_splineSyncTimer;
 
         DiminishingReturn m_Diminishing[DIMINISHING_MAX];
 
@@ -1810,6 +1832,7 @@ class TC_GAME_API Unit : public WorldObject
         bool _isWalkingBeforeCharm;     ///< Are we walking before we were charmed?
 
         SpellHistory* m_spellHistory;
+        PositionUpdateInfo _positionUpdateInfo;
 };
 
 namespace Trinity

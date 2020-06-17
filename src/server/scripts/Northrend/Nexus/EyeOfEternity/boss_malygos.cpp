@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -305,7 +305,7 @@ enum AreaIds
 enum MiscData
 {
     // Lights
-    LIGHT_GET_DEFAULT_FOR_MAP        = 0,
+    LIGHT_DEFAULT                    = 1773,
     LIGHT_OBSCURE_SPACE              = 1822,
     LIGHT_CHANGE_DIMENSIONS          = 1823,
     LIGHT_ARCANE_RUNES               = 1824,
@@ -342,7 +342,7 @@ public:
         boss_malygosAI(Creature* creature) : BossAI(creature, DATA_MALYGOS_EVENT)
         {
             Initialize();
-            _despawned = false; // We determine if Malygos will be realocated to spawning position on reset triggered by boss despawn on evade
+            _despawned = instance->GetBossState(DATA_MALYGOS_EVENT) == FAIL;
             _flySpeed = me->GetSpeed(MOVE_FLIGHT); // Get initial fly speed, otherwise on each wipe fly speed would add up if we get it
             _phase = PHASE_NOT_STARTED;
         }
@@ -385,6 +385,7 @@ public:
             SetPhase(PHASE_NOT_STARTED, true);
             me->SetReactState(REACT_PASSIVE);
             instance->DoStopTimedAchievement(ACHIEVEMENT_TIMED_TYPE_EVENT, ACHIEV_TIMED_START_EVENT);
+            instance->SetBossState(DATA_MALYGOS_EVENT, NOT_STARTED);
         }
 
         uint32 GetData(uint32 data) const override
@@ -581,9 +582,8 @@ public:
         void EnterEvadeMode(EvadeReason /*why*/) override
         {
             instance->SetBossState(DATA_MALYGOS_EVENT, FAIL);
-            instance->SetBossState(DATA_MALYGOS_EVENT, NOT_STARTED);
 
-            me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_GET_DEFAULT_FOR_MAP, 1*IN_MILLISECONDS);
+            me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_DEFAULT, 0, 1*IN_MILLISECONDS);
 
             if (!summons.empty())
             {
@@ -629,16 +629,16 @@ public:
             }
         }
 
-        void SpellHit(Unit* caster, SpellInfo const* spell) override
+        void SpellHit(WorldObject* caster, SpellInfo const* spellInfo) override
         {
-            if (spell->Id == SPELL_POWER_SPARK_MALYGOS)
+            if (spellInfo->Id == SPELL_POWER_SPARK_MALYGOS)
             {
                 if (Creature* creature = caster->ToCreature())
                     creature->DespawnOrUnsummon();
 
                 Talk(SAY_BUFF_SPARK);
             }
-            else if (spell->Id == SPELL_MALYGOS_BERSERK)
+            else if (spellInfo->Id == SPELL_MALYGOS_BERSERK)
                 Talk(EMOTE_HIT_BERSERKER_TIMER);
         }
 
@@ -701,7 +701,7 @@ public:
                     me->SetDisableGravity(true);
                     if (Creature* alexstraszaBunny = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_ALEXSTRASZA_BUNNY_GUID)))
                         me->SetFacingToObject(alexstraszaBunny);
-                    me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_ARCANE_RUNES, 5 * IN_MILLISECONDS);
+                    me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_DEFAULT, LIGHT_ARCANE_RUNES, 5 * IN_MILLISECONDS);
                     events.ScheduleEvent(EVENT_FLY_OUT_OF_PLATFORM, 18 * IN_MILLISECONDS, 0, PHASE_TWO);
                     break;
                 case POINT_SURGE_OF_POWER_P_TWO:
@@ -713,7 +713,7 @@ public:
                     }
                     break;
                 case POINT_DESTROY_PLATFORM_P_TWO:
-                    me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_OBSCURE_SPACE, 1 * IN_MILLISECONDS);
+                    me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_DEFAULT, LIGHT_OBSCURE_SPACE, 1 * IN_MILLISECONDS);
                     DoCast(me, SPELL_DESTROY_PLATFORM_CHANNEL);
                     events.ScheduleEvent(EVENT_MOVE_TO_P_THREE_POINT, 11*IN_MILLISECONDS, 0, PHASE_TWO);
                     break;
@@ -909,7 +909,7 @@ public:
                         }
                         break;
                     case EVENT_LIGHT_DIMENSION_CHANGE:
-                        me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_CHANGE_DIMENSIONS, 2 * IN_MILLISECONDS);
+                        me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_DEFAULT, LIGHT_CHANGE_DIMENSIONS, 2 * IN_MILLISECONDS);
                         break;
                     case EVENT_DELAY_MOVE_TO_DESTROY_P:
                         me->GetMotionMaster()->MovePoint(POINT_DESTROY_PLATFORM_P_TWO, MalygosPositions[0]);
@@ -919,7 +919,7 @@ public:
                         me->GetMotionMaster()->MovePoint(POINT_IDLE_P_THREE, MalygosPositions[4]);
                         break;
                     case EVENT_START_P_THREE:
-                        me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_OBSCURE_ARCANE_RUNES, 1 * IN_MILLISECONDS);
+                        me->GetMap()->SetZoneOverrideLight(AREA_EYE_OF_ETERNITY, LIGHT_DEFAULT, LIGHT_OBSCURE_ARCANE_RUNES, 1 * IN_MILLISECONDS);
                         DoCast(me, SPELL_CLEAR_ALL_DEBUFFS);
                         DoCast(me, SPELL_IMMUNE_CURSES);
                         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
@@ -930,7 +930,7 @@ public:
                     case EVENT_SURGE_OF_POWER_P_THREE:
                         if (GetDifficulty() == RAID_DIFFICULTY_10MAN_NORMAL)
                         {
-                            if (Unit* tempSurgeTarget = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, false, true, SPELL_RIDE_RED_DRAGON_BUDDY))
+                            if (Unit* tempSurgeTarget = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, false, true, SPELL_RIDE_RED_DRAGON_BUDDY))
                             {
                                 if (Vehicle* drakeVehicle = tempSurgeTarget->GetVehicleKit())
                                 {
@@ -954,7 +954,7 @@ public:
                         events.ScheduleEvent(EVENT_SURGE_OF_POWER_P_THREE, 9s, 18s, 0, PHASE_THREE);
                         break;
                     case EVENT_STATIC_FIELD:
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 60.0f, false, true, SPELL_RIDE_RED_DRAGON_BUDDY))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 60.0f, false, true, SPELL_RIDE_RED_DRAGON_BUDDY))
                             DoCast(target, SPELL_STATIC_FIELD_MISSLE, true);
 
                         events.ScheduleEvent(EVENT_STATIC_FIELD, 15s, 30s, 0, PHASE_THREE);
@@ -1023,9 +1023,9 @@ public:
             _instance = creature->GetInstanceScript();
         }
 
-        void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+        void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
         {
-            if (spell->Id == SPELL_PORTAL_OPENED)
+            if (spellInfo->Id == SPELL_PORTAL_OPENED)
             {
                 if (Creature* malygos = ObjectAccessor::GetCreature(*me, _instance->GetGuidData(DATA_MALYGOS)))
                 {
@@ -1336,7 +1336,7 @@ class npc_nexus_lord : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_ARCANE_SHOCK:
-                            if (Unit* victim = SelectTarget(SELECT_TARGET_RANDOM, 0, 5.0f, true))
+                            if (Unit* victim = SelectTarget(SelectTargetMethod::Random, 0, 5.0f, true))
                                 DoCast(victim, SPELL_ARCANE_SHOCK);
                             _events.ScheduleEvent(EVENT_ARCANE_SHOCK, 7s, 15s);
                             break;
@@ -1474,12 +1474,12 @@ public:
             }
         }
 
-        void SpellHit(Unit* /*caster*/, SpellInfo const* spell) override
+        void SpellHit(WorldObject* /*caster*/, SpellInfo const* spellInfo) override
         {
-            if (spell->Id == SPELL_ARCANE_BOMB_TRIGGER)
+            if (spellInfo->Id == SPELL_ARCANE_BOMB_TRIGGER)
             {
                 DoCastAOE(SPELL_ARCANE_BOMB_KNOCKBACK_DAMAGE, true);
-                DoCast(me, SPELL_ARCANE_OVERLOAD_1, true);
+                DoCastSelf(SPELL_ARCANE_OVERLOAD_1, true);
             }
         }
 

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2010 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -259,7 +258,7 @@ class boss_anubarak_trial : public CreatureScript
                         break;
                     case NPC_SPIKE:
                         summoned->SetDisplayId(summoned->GetCreatureTemplate()->Modelid1);
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
                         {
                             summoned->EngageWithTarget(target);
                             Talk(EMOTE_SPIKE, target);
@@ -271,9 +270,9 @@ class boss_anubarak_trial : public CreatureScript
                 summons.Summon(summoned);
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 Talk(SAY_AGGRO);
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
 
@@ -371,7 +370,6 @@ class boss_anubarak_trial : public CreatureScript
                             break;
                         }
                         case EVENT_EMERGE:
-                            events.ScheduleEvent(EVENT_SUBMERGE, 80*IN_MILLISECONDS, 0, PHASE_MELEE);
                             DoCast(SPELL_SPIKE_TELE);
                             summons.DespawnEntry(NPC_SPIKE);
                             me->RemoveAurasDueToSpell(SPELL_SUBMERGE_ANUBARAK);
@@ -560,7 +558,7 @@ class npc_nerubian_burrower : public CreatureScript
                 {
                     case ACTION_SHADOW_STRIKE:
                         if (!me->HasAura(SPELL_AWAKENED))
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                                 DoCast(target, SPELL_SHADOW_STRIKE);
                         break;
                     default:
@@ -721,7 +719,7 @@ class npc_anubarak_spike : public CreatureScript
 
             void JustEngagedWith(Unit* who) override
             {
-                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
                 {
                     StartChase(target);
                     Talk(EMOTE_SPIKE, who);
@@ -751,7 +749,7 @@ class npc_anubarak_spike : public CreatureScript
                                 DoCast(me, SPELL_SPIKE_SPEED1);
                                 DoCast(me, SPELL_SPIKE_TRAIL);
                                 _phase = PHASE_IMPALE_NORMAL;
-                                if (Unit* target2 = SelectTarget(SELECT_TARGET_RANDOM, 0, 0.0f, true))
+                                if (Unit* target2 = SelectTarget(SelectTargetMethod::Random, 0, 0.0f, true))
                                 {
                                     StartChase(target2);
                                     Talk(EMOTE_SPIKE, target2);
@@ -826,8 +824,7 @@ class npc_anubarak_spike : public CreatureScript
                 me->GetThreatManager().ResetAllThreat();
                 DoZoneInCombat();
                 AddThreat(who, 1000000.0f);
-                me->GetMotionMaster()->Clear();
-                me->GetMotionMaster()->MoveChase(who);
+                AttackStart(who);
             }
 
             private:

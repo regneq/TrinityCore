@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -421,12 +421,12 @@ class boss_mimiron : public CreatureScript
                 }
             }
 
-            void JustEngagedWith(Unit* /*who*/) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (!me->GetVehicleBase())
                     return;
 
-                _JustEngagedWith();
+                BossAI::JustEngagedWith(who);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                 me->RemoveAurasDueToSpell(SPELL_WELD);
                 DoCast(me->GetVehicleBase(), SPELL_SEAT_6);
@@ -543,7 +543,7 @@ class boss_mimiron : public CreatureScript
                             break;
                         case EVENT_VX001_ACTIVATION_5:
                             if (GameObject* elevator = instance->GetGameObject(DATA_MIMIRON_ELEVATOR))
-                                elevator->SetGoState(GO_STATE_ACTIVE_ALTERNATIVE);
+                                elevator->SetGoState(GO_STATE_DESTROYED);
                             if (Creature* vx001 = me->SummonCreature(NPC_VX_001, VX001SummonPos, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 120000))
                                 vx001->CastSpell(vx001, SPELL_FREEZE_ANIM);
                             events.ScheduleEvent(EVENT_VX001_ACTIVATION_6, 19000);
@@ -1034,10 +1034,10 @@ class boss_vx_001 : public CreatureScript
                         mimiron->AI()->Talk(events.IsInPhase(PHASE_VX_001) ? SAY_VX001_SLAY : SAY_V07TRON_SLAY);
             }
 
-            void SpellHit(Unit* caster, SpellInfo const* /*spellProto*/) override
+            void SpellHit(WorldObject* caster, SpellInfo const* /*spellInfo*/) override
             {
                 if (caster->GetEntry() == NPC_BURST_TARGET && !me->HasUnitState(UNIT_STATE_CASTING))
-                    DoCast(caster, SPELL_RAPID_BURST);
+                    DoCast(caster->ToUnit(), SPELL_RAPID_BURST);
             }
 
             void UpdateAI(uint32 diff) override
@@ -1060,7 +1060,7 @@ class boss_vx_001 : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_RAPID_BURST:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 120, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 120, true))
                                 DoCast(target, SPELL_SUMMON_BURST_TARGET);
                             events.RescheduleEvent(EVENT_RAPID_BURST, 3000, 0, PHASE_VX_001);
                             break;
@@ -1075,7 +1075,7 @@ class boss_vx_001 : public CreatureScript
                                     rocket->SetDisplayId(rocket->GetNativeDisplayId());
                             break;
                         case EVENT_HAND_PULSE:
-                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 120, true))
+                            if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 120, true))
                                 DoCast(target, RAND(SPELL_HAND_PULSE_LEFT, SPELL_HAND_PULSE_RIGHT));
                             events.RescheduleEvent(EVENT_HAND_PULSE, urand(1500, 3000), 0, PHASE_VOL7RON);
                             break;
@@ -1308,7 +1308,7 @@ class npc_mimiron_assault_bot : public CreatureScript
 
                 if (me->HasUnitState(UNIT_STATE_ROOT))
                 {
-                    if (Unit* newTarget = SelectTarget(SELECT_TARGET_MINDISTANCE, 0, 30.0f, true))
+                    if (Unit* newTarget = SelectTarget(SelectTargetMethod::MinDistance, 0, 30.0f, true))
                     {
                         me->GetThreatManager().ResetAllThreat();
                         AttackStart(newTarget);

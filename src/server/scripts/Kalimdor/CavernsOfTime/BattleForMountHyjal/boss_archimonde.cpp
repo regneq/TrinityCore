@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2006-2009 ScriptDev2 <https://scriptdev2.svn.sourceforge.net/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -300,10 +299,10 @@ public:
             me->RemoveAllAuras();                              // Reset Soul Charge auras.
         }
 
-        void JustEngagedWith(Unit* /*who*/) override
+        void JustEngagedWith(Unit* who) override
         {
             Talk(SAY_AGGRO);
-            _JustEngagedWith();
+            BossAI::JustEngagedWith(who);
             events.ScheduleEvent(EVENT_FEAR, 42s);
             events.ScheduleEvent(EVENT_AIR_BURST, 30s);
             events.ScheduleEvent(EVENT_GRIP_OF_THE_LEGION, 5s, 25s);
@@ -351,22 +350,22 @@ public:
                     }
                     break;
                 case EVENT_FINGER_OF_DEATH:
-                    if (!SelectTarget(SELECT_TARGET_RANDOM, 0, 5.0f)) // Checks if there are no targets in melee range
+                    if (!SelectTarget(SelectTargetMethod::Random, 0, 5.0f)) // Checks if there are no targets in melee range
                     {
-                        DoCast(SelectTarget(SELECT_TARGET_RANDOM, 0), SPELL_FINGER_OF_DEATH);
+                        DoCast(SelectTarget(SelectTargetMethod::Random, 0), SPELL_FINGER_OF_DEATH);
                         events.ScheduleEvent(EVENT_FINGER_OF_DEATH, 1s);
                     }
                     else
                         events.ScheduleEvent(EVENT_FINGER_OF_DEATH, 5s);
                     break;
                 case EVENT_GRIP_OF_THE_LEGION:
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                         DoCast(target, SPELL_GRIP_OF_THE_LEGION);
                     events.ScheduleEvent(EVENT_GRIP_OF_THE_LEGION, 5s, 25s);
                     break;
                 case EVENT_AIR_BURST:
                     Talk(SAY_AIR_BURST);
-                    if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 1))
+                    if (Unit* target = SelectTarget(SelectTargetMethod::Random, 1))
                         DoCast(target, SPELL_AIR_BURST); //not on tank
                     events.ScheduleEvent(EVENT_AIR_BURST, 25s, 40s);
                     break;
@@ -376,7 +375,7 @@ public:
                     break;
                 case EVENT_DOOMFIRE:
                     Talk(SAY_DOOMFIRE);
-                    if (Unit* temp = SelectTarget(SELECT_TARGET_RANDOM, 1))
+                    if (Unit* temp = SelectTarget(SelectTargetMethod::Random, 1))
                         SummonDoomfire(temp);
                     else
                         SummonDoomfire(me->GetVictim());

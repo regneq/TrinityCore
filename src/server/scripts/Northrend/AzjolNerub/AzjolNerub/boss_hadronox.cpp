@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -312,7 +312,7 @@ public:
                         events.Repeat(randtime(Seconds(7), Seconds(9)));
                         break;
                     case EVENT_ACID_CLOUD:
-                        if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0, 100.0f))
+                        if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0, 100.0f))
                             DoCast(target, SPELL_ACID_CLOUD);
                         events.Repeat(randtime(Seconds(16), Seconds(23)));
                         break;

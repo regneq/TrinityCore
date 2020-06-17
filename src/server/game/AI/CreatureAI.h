@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -139,12 +138,16 @@ class TC_GAME_API CreatureAI : public UnitAI
         virtual void SummonedCreatureDies(Creature* /*summon*/, Unit* /*killer*/) { }
 
         // Called when hit by a spell
-        virtual void SpellHit(Unit* /*caster*/, SpellInfo const* /*spellInfo*/) { }
-        virtual void SpellHitByGameObject(GameObject* /*caster*/, SpellInfo const* /*spellInfo*/) { }
+        virtual void SpellHit(WorldObject* /*caster*/, SpellInfo const* /*spellInfo*/) { }
 
         // Called when spell hits a target
-        virtual void SpellHitTarget(Unit* /*target*/, SpellInfo const* /*spellInfo*/) { }
-        virtual void SpellHitTargetGameObject(GameObject* /*target*/, SpellInfo const* /*spellInfo*/) { }
+        virtual void SpellHitTarget(WorldObject* /*target*/, SpellInfo const* /*spellInfo*/) { }
+
+        // Called when a spell cast gets interrupted
+        virtual void OnSpellCastInterrupt(SpellInfo const* /*spell*/) { }
+
+        // Called when a spell cast has been successfully finished
+        virtual void OnSuccessfulSpellCast(SpellInfo const* /*spell*/) { }
 
         // Should return true if the NPC is currently being escorted
         virtual bool IsEscorted() const { return false; }
@@ -193,7 +196,7 @@ class TC_GAME_API CreatureAI : public UnitAI
         /// == Gossip system ================================
 
         // Called when the dialog status between a player and the creature is requested.
-        virtual Optional<QuestGiverStatus> GetDialogStatus(Player* /*player*/) { return boost::none; }
+        virtual Optional<QuestGiverStatus> GetDialogStatus(Player* /*player*/) { return {}; }
 
         // Called when a player opens a gossip dialog with the creature.
         virtual bool GossipHello(Player* /*player*/) { return false; }

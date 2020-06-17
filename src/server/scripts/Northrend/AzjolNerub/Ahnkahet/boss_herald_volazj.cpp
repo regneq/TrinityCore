@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 TrinityCore <https://www.trinitycore.org/>
+ * This file is part of the TrinityCore Project. See AUTHORS file for Copyright information
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -109,9 +109,9 @@ public:
             }
         }
 
-        void SpellHitTarget(Unit* target, SpellInfo const* spell) override
+        void SpellHitTarget(WorldObject* target, SpellInfo const* spellInfo) override
         {
-            if (spell->Id == SPELL_INSANITY)
+            if (spellInfo->Id == SPELL_INSANITY)
             {
                 // Not good target or too many players
                 if (target->GetTypeId() != TYPEID_PLAYER || insanityHandled > 4)
@@ -283,7 +283,7 @@ public:
 
             if (uiShiverTimer <= diff)
             {
-                if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                if (Unit* target = SelectTarget(SelectTargetMethod::Random, 0))
                     DoCast(target, SPELL_SHIVER);
                 uiShiverTimer = 15*IN_MILLISECONDS;
             } else uiShiverTimer -= diff;
